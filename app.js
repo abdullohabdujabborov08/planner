@@ -1,59 +1,173 @@
-// Şaxsiy Yordamçi — Mini App (6-bosqiç)
-// Ma'lumot Apps Script Web App'dan keladi; har sörovda Telegram initData yuboriladi va serverda tekşiriladi.
+// Şaxsiy Yordamçi — ilova (PWA) va Telegram Mini App uçun bitta kod
+// Ma'lumot Apps Script Web App'dan keladi.
+// Telegram içida: initData imzosi; alohida ilovada: parol bilan olingan token.
 
 const API_URL = 'https://script.google.com/macros/s/AKfycby-HPWDSm7ImB9E1gvnynj0pLlgyYkM6T-iVB5bvGE0hXVjckrF6Z_A1BXfKQu61dFC/exec';
 const tg = window.Telegram && window.Telegram.WebApp;
+const IN_TELEGRAM = !!(tg && tg.initData);
+const TOKEN_KEY = 'sy_token';
+const WEEKDAYS = ['Yakşanba', 'Duşanba', 'Seşanba', 'Çorşanba', 'Payşanba', 'Juma', 'Şanba'];
+const MONTHS = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
+
+const ICONS = {
+  calendar: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>',
+  more: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>'
+};
+
+// Agentlar (modullar) röyxati — yangi agent qöşiş uçun şu yerga bitta qator qöşiladi
+const MODULES = [
+  { id: 'planner', title: 'Rejalaştiruvçi', desc: 'Vazifalar va kun tartibi', icon: ICONS.calendar }
+];
 
 let view = 'day';          // day | tomorrow | week
 let openMenu = null;       // oçiq turgan vazifa menyusi (id)
-let draft = null;          // AI tayyorlagan qoralama
 
 const $ = (id) => document.getElementById(id);
 
 // ---------- Server bilan aloqa ----------
 
+function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; }
+}
+function setToken(t) {
+  try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) { /* xotira yöq */ }
+}
+
 /** Apps Script'ga POST (text/plain — CORS "preflight"siz) */
 async function api(action, payload = {}) {
+  const auth = IN_TELEGRAM ? { initData: tg.initData } : { token: getToken() };
   const res = await fetch(API_URL + '?api=1', {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ action, initData: tg ? tg.initData : '' }, payload))
+    body: JSON.stringify(Object.assign({ action }, auth, payload))
   });
   const data = await res.json();
-  if (data.error === 'auth') throw new Error("Mini App'ni Telegram içidan oçing");
-  if (data.error === 'forbidden') throw new Error('Bu şaxsiy ilova');
+  if (data.error === 'auth') {
+    if (!IN_TELEGRAM) { setToken(null); go('login'); }
+    throw new Error('Qayta kiring');
+  }
   return data;
 }
 
-// ---------- Sana yordamçilari ----------
+// ---------- Ekranlar orasida yuriş ----------
 
-function ymd(d) {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-function today(offset = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d;
-}
-function nowHM() {
-  const d = new Date();
-  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+const SCREENS = ['login', 'home', 'planner'];
+
+function go(name, push = true) {
+  SCREENS.forEach((s) => $('screen-' + s).classList.toggle('hidden', s !== name));
+  if (push && location.hash !== '#' + name) history.pushState(null, '', '#' + name);
+  window.scrollTo(0, 0);
+  if (tg && tg.BackButton && IN_TELEGRAM) name === 'planner' ? tg.BackButton.show() : tg.BackButton.hide();
+  if (name === 'home') loadHome();
+  if (name === 'planner') loadPlanner();
 }
 
-// ---------- Röyxatni körsatiş ----------
+function currentRoute() {
+  const h = location.hash.replace('#', '');
+  if (!IN_TELEGRAM && !getToken()) return 'login';
+  return SCREENS.indexOf(h) > 0 ? h : 'home';
+}
 
-async function load() {
+// ---------- Kiriş ----------
+
+async function login(e) {
+  e.preventDefault();
+  const b = $('loginBtn');
+  const err = $('loginErr');
+  err.classList.add('hidden');
+  b.disabled = true; b.textContent = 'Tekşirilmoqda…';
+  try {
+    const device = /iPhone|iPad/.test(navigator.userAgent) ? 'iPhone' : /Android/.test(navigator.userAgent) ? 'Android' : 'Kompyuter';
+    const r = await api('login', { password: $('password').value, device });
+    if (!r.ok) throw new Error(r.error || 'Kiriş bölmadi');
+    setToken(r.token);
+    $('password').value = '';
+    go('home');
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.classList.remove('hidden');
+  } finally {
+    b.disabled = false; b.textContent = 'Kiriş';
+  }
+}
+
+async function logout() {
+  confirmAsk('Ilovadan çiqasizmi?', async () => {
+    try { await api('logout', { token: getToken() }); } catch (e) { /* baribir çiqamiz */ }
+    setToken(null);
+    go('login');
+  });
+}
+
+// ---------- Bosh ekran ----------
+
+function renderModules() {
+  const box = $('modules');
+  box.innerHTML = '';
+  MODULES.forEach((m) => {
+    const b = document.createElement('button');
+    b.className = 'module';
+    b.innerHTML = '<div class="ico">' + m.icon + '</div><b>' + esc(m.title) + '</b><span>' + esc(m.desc) + '</span>';
+    b.onclick = () => go(m.id);
+    box.appendChild(b);
+  });
+  box.insertAdjacentHTML('beforeend',
+    '<div class="module soon"><div class="ico">' + ICONS.plus + '</div><b>Yangi agent</b><span>Tez orada</span></div>');
+}
+
+async function loadHome() {
+  const now = new Date();
+  const h = now.getHours();
+  $('greet').textContent = h < 5 ? 'Xayrli tun' : h < 12 ? 'Xayrli tong' : h < 18 ? 'Xayrli kun' : 'Xayrli keç';
+  $('today').innerHTML = esc(WEEKDAYS[now.getDay()]) + ', <em>' + now.getDate() + '-' + MONTHS[now.getMonth()] + '</em>';
+
+  const cached = readCache(ymd(today(0)));
+  if (cached) renderSummary(cached);
+  try {
+    const data = await api('days', { from: ymd(today(0)), count: 1 });
+    if (!data.ok) throw new Error(data.error);
+    writeCache(data.days);
+    renderSummary(data.days[0]);
+  } catch (e) {
+    if (!cached) $('sumNext').textContent = '⚠️ ' + e.message;
+  }
+}
+
+function renderSummary(day) {
+  const tasks = day.items.filter((x) => x.kind === 'task');
+  const done = tasks.filter((x) => x.status === 'Bajarildi').length;
+  $('sumCount').textContent = tasks.length ? done + '/' + tasks.length : '0';
+  $('sumBar').style.width = tasks.length ? Math.round(done / tasks.length * 100) + '%' : '0';
+  const hm = nowHM();
+  const next = tasks.find((x) => x.status !== 'Bajarildi' && x.end >= hm);
+  $('sumNext').textContent = next ? 'Keyingi: ' + next.start + ' — ' + next.title
+    : tasks.length ? 'Bugungi vazifalar tugadi 👏' : 'Bugun vazifa yöq. Qöşiş uçun bosing.';
+}
+
+// ---------- Rejalaştiruvçi ----------
+
+async function loadPlanner() {
   const list = $('list');
-  list.innerHTML = '<div class="skel"></div><div class="skel"></div>';
   openMenu = null;
   const from = view === 'tomorrow' ? ymd(today(1)) : ymd(today(0));
   const count = view === 'week' ? 7 : 1;
+  const cached = count === 1 ? readCache(from) : null;
+  if (cached) render([cached]);
+  else list.innerHTML = '<div class="skel"></div><div class="skel"></div>';
   try {
     const data = await api('days', { from, count });
     if (!data.ok) throw new Error(data.error || 'Xatolik');
+    writeCache(data.days);
     render(data.days);
   } catch (e) {
-    list.innerHTML = '<div class="error">⚠️ ' + esc(e.message) + '<br><br><button class="primary" onclick="load()">Qayta urinib köriş</button></div>';
+    if (!cached) {
+      list.innerHTML = '<div class="error">⚠️ ' + esc(e.message) + '<button class="btn-ghost" id="retryBtn">Qayta urinib köriş</button></div>';
+      $('retryBtn').onclick = loadPlanner;
+    } else {
+      toast('⚠️ Internet yöq — oxirgi saqlangan reja');
+    }
   }
 }
 
@@ -86,14 +200,15 @@ function renderItem(it, isToday) {
   const isDone = it.status === 'Bajarildi';
   const late = it.kind === 'task' && !isDone && (it.status === 'Keçikdi' || (isToday && it.end < nowHM()));
   row.className = 'item ' + it.kind + (it.kind === 'block' && !it.soft ? ' hard' : '') + (isDone ? ' done' : '') + (late ? ' late' : '');
-  row.innerHTML = '<span class="time">' + it.start + '–' + it.end + '</span><span class="title">' + esc(it.title) + '</span>';
+  row.innerHTML = (it.kind === 'block' ? '<span class="dot"><i></i></span>' : '') +
+    '<span class="time">' + it.start + '–' + it.end + '</span><span class="title">' + esc(it.title) + '</span>';
   wrap.appendChild(row);
   if (it.kind !== 'task') return wrap;
 
   // Bajarildi belgisi
   const check = document.createElement('button');
   check.className = 'check';
-  check.textContent = isDone ? '✓' : '';
+  check.innerHTML = ICONS.check;
   check.setAttribute('aria-label', 'Bajarildi');
   check.onclick = () => { if (!isDone) act('done', it, row); };
   row.prepend(check);
@@ -102,7 +217,8 @@ function renderItem(it, isToday) {
   if (!isDone) {
     const more = document.createElement('button');
     more.className = 'more';
-    more.textContent = '⋯';
+    more.innerHTML = ICONS.more;
+    more.setAttribute('aria-label', 'Amallar');
     more.onclick = () => toggleMenu(it, wrap);
     row.appendChild(more);
   }
@@ -115,7 +231,7 @@ function toggleMenu(it, wrap) {
   openMenu = it.id;
   const m = document.createElement('div');
   m.className = 'menu';
-  m.innerHTML = '<button data-a="tomorrow">➡️ Ertaga</button><button data-a="delete" class="del">Bekor qiliş</button>';
+  m.innerHTML = '<button data-a="tomorrow">Ertaga köçiriş</button><button data-a="delete" class="del">Bekor qiliş</button>';
   m.onclick = (e) => {
     const a = e.target.dataset.a;
     if (a === 'delete') confirmAsk('«' + it.title + '» bekor qilinsinmi?', () => act('delete', it));
@@ -136,19 +252,18 @@ async function act(action, it, row) {
   } catch (e) {
     toast('⚠️ ' + e.message);
   }
-  load();
+  loadPlanner();
 }
 
 // ---------- Yangi vazifa ----------
 
 function openSheet() {
-  draft = null;
   $('taskText').value = '';
   $('stepText').classList.remove('hidden');
   $('stepForm').classList.add('hidden');
   $('formWarn').classList.add('hidden');
   $('sheet').classList.remove('hidden');
-  setTimeout(() => $('taskText').focus(), 50);
+  setTimeout(() => $('taskText').focus(), 60);
 }
 function closeSheet() { $('sheet').classList.add('hidden'); }
 
@@ -163,25 +278,28 @@ async function parseText() {
     if (!r.ok) throw new Error(r.error);
     fillForm(r.draft, r.auto, r.warn);
   } catch (e) {
-    // AI işlamasa ham — böş forma bilan davom etamiz
+    // AI işlamasa ham — forma bilan davom etamiz
     toast('⚠️ ' + e.message);
-    fillForm({ title: text.slice(0, 100), date: ymd(today(0)), start: '', duration: 30 }, null, '');
+    fillForm({ title: text.slice(0, 100), date: defaultDate(), start: '', duration: 30 }, null, '');
   } finally {
     b.disabled = false; b.textContent = 'Davom etiş';
   }
 }
 
+function defaultDate() {
+  return view === 'tomorrow' ? ymd(today(1)) : ymd(today(0));
+}
+
 function fillForm(t, auto, warn) {
-  draft = t;
   $('fTitle').value = t.title || '';
-  $('fDate').value = t.date || ymd(today(0));
+  $('fDate').value = t.date || defaultDate();
   $('fStart').value = t.start ? t.start.padStart(5, '0') : '';
   setSelect('fDuration', t.duration || 30);
   setSelect('fPriority', t.priority || 'Örta');
   setSelect('fCategory', t.category || 'Boşqa');
   $('fNote').value = t.note || '';
   const notes = [];
-  if (auto === 'free') notes.push('🕒 Vaqt böş oraliqqa özim qöydim.');
+  if (auto === 'free') notes.push('🕒 Vaqtni böş oraliqqa özim qöydim.');
   if (auto === 'soft') notes.push('🕒 Böş vaqt yöq, iş/yöl vaqtiga qöydim.');
   if (warn) notes.push(warn);
   showWarn(notes.join('\n'));
@@ -213,7 +331,7 @@ async function saveTask(force) {
     note: $('fNote').value.trim()
   };
   const b = $('saveBtn');
-  b.disabled = true;
+  b.disabled = true; b.textContent = 'Saqlanmoqda…';
   try {
     const r = await api('save', { task, force: !!force });
     if (r.confirm) {
@@ -225,30 +343,37 @@ async function saveTask(force) {
     closeSheet();
     haptic('success');
     toast('✅ Saqlandi\n' + r.summary);
-    load();
+    loadPlanner();
   } catch (e) {
     toast('⚠️ ' + e.message);
   } finally {
-    b.disabled = false;
+    b.disabled = false; b.textContent = 'Saqlaş';
   }
 }
 
-// ---------- Telefon ekraniga qöşiş ----------
+// ---------- Oflayn keş: oxirgi körilgan kunlar ----------
 
-function setupHomeScreen() {
-  if (!tg || !tg.isVersionAtLeast || !tg.isVersionAtLeast('8.0') || !tg.checkHomeScreenStatus) return;
-  tg.checkHomeScreenStatus((status) => {
-    if (status === 'missed' || status === 'unknown') $('homeBtn').classList.remove('hidden');
-  });
-  $('homeBtn').onclick = () => tg.addToHomeScreen();
-  tg.onEvent('homeScreenAdded', () => {
-    $('homeBtn').classList.add('hidden');
-    toast('📲 Ekranga qöşildi');
-  });
+function readCache(date) {
+  try { return JSON.parse(localStorage.getItem('sy_day_' + date) || 'null'); } catch (e) { return null; }
+}
+function writeCache(days) {
+  try { days.forEach((d) => localStorage.setItem('sy_day_' + d.date, JSON.stringify(d))); } catch (e) { /* joy yöq */ }
 }
 
 // ---------- Mayda yordamçilar ----------
 
+function ymd(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function today(offset = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d;
+}
+function nowHM() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -259,46 +384,84 @@ function toast(text) {
   t.textContent = text;
   t.classList.remove('hidden');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.add('hidden'), 2600);
+  toastTimer = setTimeout(() => t.classList.add('hidden'), 2800);
 }
 
 function haptic(type) {
-  if (!tg || !tg.HapticFeedback) return;
-  if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
-  else tg.HapticFeedback.impactOccurred(type);
+  if (IN_TELEGRAM && tg.HapticFeedback) {
+    if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+    else tg.HapticFeedback.impactOccurred(type);
+  } else if (navigator.vibrate) {
+    navigator.vibrate(type === 'success' ? [10, 40, 10] : 10);
+  }
 }
 
 function confirmAsk(text, onYes) {
-  if (tg && tg.showConfirm && tg.isVersionAtLeast && tg.isVersionAtLeast('6.2')) {
+  if (IN_TELEGRAM && tg.showConfirm && tg.isVersionAtLeast('6.2')) {
     tg.showConfirm(text, (ok) => { if (ok) onYes(); });
   } else if (window.confirm(text)) {
     onYes();
   }
 }
 
+function isStandalone() {
+  return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+}
+
 // ---------- Işga tuşiriş ----------
 
 function init() {
-  if (tg) {
+  if (IN_TELEGRAM) {
     tg.ready();
     tg.expand();
-    if (tg.setHeaderColor && tg.isVersionAtLeast('6.1')) tg.setHeaderColor('secondary_bg_color');
+    if (tg.isVersionAtLeast('6.1')) {
+      tg.setHeaderColor('#0B0D17');
+      tg.setBackgroundColor('#0B0D17');
+    }
+    tg.BackButton.onClick(() => history.back());
+  } else {
+    $('logoutBtn').classList.remove('hidden');
+    // Ilova hali örnatilmagan bölsa, iPhone'da qanday örnatişni körsatamiz
+    if (!isStandalone() && /iPhone|iPad/.test(navigator.userAgent)) {
+      $('installHint').classList.remove('hidden');
+      $('installHint2').classList.remove('hidden');
+    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+
+  renderModules();
+  $('loginForm').onsubmit = login;
+  $('logoutBtn').onclick = logout;
+  $('summary').onclick = () => go('planner');
+  $('backBtn').onclick = () => history.length > 1 ? history.back() : go('home');
+  $('refreshBtn').onclick = loadPlanner;
   document.querySelectorAll('.tab').forEach((b) => {
     b.onclick = () => {
       document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === b));
       view = b.dataset.view;
-      load();
+      loadPlanner();
     };
   });
   $('addBtn').onclick = openSheet;
   $('closeSheet').onclick = closeSheet;
   $('sheet').onclick = (e) => { if (e.target.id === 'sheet') closeSheet(); };
   $('parseBtn').onclick = parseText;
+  $('manualBtn').onclick = () => fillForm({ date: defaultDate(), duration: 30 }, null, '');
   $('taskText').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); parseText(); } };
   $('stepForm').onsubmit = (e) => { e.preventDefault(); saveTask(false); };
-  setupHomeScreen();
-  load();
+
+  window.addEventListener('popstate', () => go(currentRoute(), false));
+  // Ilovaga qaytganda (fonda turgan bölsa) ma'lumotni yangilaymiz
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const r = currentRoute();
+    if (r === 'home') loadHome();
+    if (r === 'planner') loadPlanner();
+  });
+
+  const first = currentRoute();
+  history.replaceState(null, '', '#' + first);
+  go(first, false);
 }
 
 init();

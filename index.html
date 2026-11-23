@@ -4,34 +4,105 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <title>Şaxsiy Yordamçi</title>
+  <meta name="theme-color" content="#0B0D17">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Yordamçi">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="top">
-    <div class="tabs" role="tablist">
-      <button class="tab active" data-view="day" role="tab">Bugun</button>
-      <button class="tab" data-view="tomorrow" role="tab">Ertaga</button>
-      <button class="tab" data-view="week" role="tab">Hafta</button>
+
+  <!-- Kiriş -->
+  <section id="screen-login" class="screen login hidden">
+    <div class="login-box">
+      <div class="logo">ŞY</div>
+      <h1>Şaxsiy <em>Yordamçi</em></h1>
+      <p class="muted">Kiriş uçun parolingizni yozing</p>
+      <form id="loginForm">
+        <input id="password" type="password" autocomplete="current-password" placeholder="Parol" required>
+        <button type="submit" id="loginBtn" class="btn-accent">Kiriş</button>
+      </form>
+      <p id="loginErr" class="err hidden"></p>
     </div>
-    <button id="homeBtn" class="home hidden" title="Telefon ekraniga qöşiş">📲</button>
-  </header>
+    <div id="installHint" class="install hidden">
+      <b>Ilova qilib örnatiş</b>
+      <span>Safari'da <b>•••</b> → <b>Поделиться</b> → <b>На экран «Домой»</b></span>
+    </div>
+  </section>
 
-  <main id="list" class="list"></main>
+  <!-- Bosh ekran -->
+  <section id="screen-home" class="screen hidden">
+    <header class="bar">
+      <span class="brand">Şaxsiy Yordamçi</span>
+      <button id="logoutBtn" class="icon-btn hidden" aria-label="Çiqiş">
+        <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg>
+      </button>
+    </header>
 
-  <button id="addBtn" class="fab" aria-label="Vazifa qöşiş">＋</button>
+    <div class="hello">
+      <p id="greet" class="muted"></p>
+      <h1 id="today"></h1>
+    </div>
+
+    <button id="summary" class="summary">
+      <div class="summary-top">
+        <span>Bugungi vazifalar</span>
+        <span id="sumCount" class="count">—</span>
+      </div>
+      <div class="progress"><i id="sumBar"></i></div>
+      <p id="sumNext" class="next">Yuklanmoqda…</p>
+    </button>
+
+    <h2 class="section">Agentlar</h2>
+    <div id="modules" class="modules"></div>
+
+    <div id="installHint2" class="install hidden">
+      <b>Ilova qilib örnatiş</b>
+      <span>Safari'da <b>•••</b> → <b>Поделиться</b> → <b>На экран «Домой»</b></span>
+    </div>
+  </section>
+
+  <!-- Rejalaştiruvçi -->
+  <section id="screen-planner" class="screen hidden">
+    <header class="bar">
+      <button id="backBtn" class="icon-btn" aria-label="Orqaga">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <span class="title">Rejalaştiruvçi</span>
+      <button id="refreshBtn" class="icon-btn" aria-label="Yangilaş">
+        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
+      </button>
+    </header>
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-view="day">Bugun</button>
+      <button class="tab" data-view="tomorrow">Ertaga</button>
+      <button class="tab" data-view="week">Hafta</button>
+    </div>
+    <main id="list" class="list"></main>
+    <button id="addBtn" class="fab" aria-label="Vazifa qöşiş">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </section>
 
   <!-- Vazifa qöşiş oynasi -->
   <div id="sheet" class="sheet hidden">
     <div class="sheet-card">
       <div class="sheet-head">
         <b>Yangi vazifa</b>
-        <button id="closeSheet" class="ghost">✕</button>
+        <button id="closeSheet" class="icon-btn" aria-label="Yopiş">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </div>
 
       <div id="stepText">
         <textarea id="taskText" rows="2" placeholder="Masalan: ertaga 15:00 dökonga boriş, 1 soat"></textarea>
-        <button id="parseBtn" class="primary">Davom etiş</button>
+        <button id="parseBtn" class="btn-accent">Davom etiş</button>
+        <button id="manualBtn" class="btn-ghost">Qölda töldiriş</button>
       </div>
 
       <form id="stepForm" class="hidden">
@@ -61,7 +132,7 @@
         </label>
         <label>Izoh<input id="fNote" maxlength="200" placeholder="ixtiyoriy"></label>
         <p id="formWarn" class="warn hidden"></p>
-        <button type="submit" id="saveBtn" class="primary">Saqlaş</button>
+        <button type="submit" id="saveBtn" class="btn-accent">Saqlaş</button>
       </form>
     </div>
   </div>
