@@ -187,6 +187,12 @@ input[type="date"], input[type="time"] { color-scheme: dark; min-height: 48px; }
 label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
 .row { display: flex; gap: 10px; }
 .row label { flex: 1; min-width: 0; }
+/* Jadval özgarişi kartasi */
+.routine p {
+  margin: 0 0 6px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text-muted); font-size: 14px; white-space: pre-line;
+}
+.routine .btn-accent { margin-top: 6px; }
 .warn { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; white-space: pre-line; font-size: 13px; color: var(--text-muted); }
 
 .skel { height: 120px; border-radius: var(--radius); margin-bottom: 14px; background: var(--card); animation: pulse 1.2s infinite; }

@@ -23,6 +23,7 @@ const MODULES = [
 
 let view = 'day';          // day | tomorrow | week
 let openMenu = null;       // oçiq turgan vazifa menyusi (id)
+let routineDraft = null;   // jadval taklifida «alohida vazifa» uçun qoralama
 
 // Ovoz yoziş holati
 let rec = null;
@@ -270,6 +271,7 @@ function openSheet(focus = true) {
   $('taskText').value = '';
   $('stepText').classList.remove('hidden');
   $('stepForm').classList.add('hidden');
+  $('routineBox').classList.add('hidden');
   $('formWarn').classList.add('hidden');
   $('sheet').classList.remove('hidden');
   if (focus) setTimeout(() => $('taskText').focus(), 60);
@@ -331,6 +333,7 @@ async function onRecordStop() {
     const r = await api('parse', { audio: { mime: 'audio/wav', data: wav } });
     if (!r.ok) throw new Error(r.error);
     haptic('success');
+    if (r.routine) { showRoutine(r); return; }
     fillForm(r.draft, r.auto, r.warn, r.heard);
   } catch (e) {
     toast('⚠️ ' + e.message);
@@ -389,6 +392,7 @@ async function parseText() {
   try {
     const r = await api('parse', { text });
     if (!r.ok) throw new Error(r.error);
+    if (r.routine) { showRoutine(r); return; }
     fillForm(r.draft, r.auto, r.warn);
   } catch (e) {
     // AI işlamasa ham — forma bilan davom etamiz
@@ -418,7 +422,45 @@ function fillForm(t, auto, warn, heard) {
   if (warn) notes.push(warn);
   showWarn(notes.join('\n'));
   $('stepText').classList.add('hidden');
+  $('routineBox').classList.add('hidden');
   $('stepForm').classList.remove('hidden');
+}
+
+// ---------- Kun tartibini özgartiriş ----------
+
+/** Server «bu jadvaldagi blok» dedi: vazifa örniga jadval özgarişini körsatamiz */
+function showRoutine(r) {
+  routineDraft = r.draft || null;
+  const same = !!r.routine.same;
+  $('routineText').textContent = (r.heard ? '🎙 «' + r.heard + '»\n' : '') + r.routine.text +
+    (same ? '\nU allaqaçon jadvalda bor.' : '');
+  $('rOnce').textContent = same ? 'Tuşunarli' : 'Ha, faqat şu kun';
+  $('rOnce').dataset.same = same ? '1' : '';
+  $('rWeek').textContent = 'Har ' + r.routine.weekday + ' şunday';
+  $('rWeek').classList.toggle('hidden', same);
+  $('rTask').textContent = same ? 'Baribir vazifa qöş' : 'Yöq, alohida vazifa';
+  $('rTask').classList.toggle('hidden', !routineDraft);
+  $('stepText').classList.add('hidden');
+  $('stepForm').classList.add('hidden');
+  $('routineBox').classList.remove('hidden');
+}
+
+async function applyRoutine(scope) {
+  if (scope === 'once' && $('rOnce').dataset.same) { closeSheet(); return; }
+  const btns = [$('rOnce'), $('rWeek'), $('rTask')];
+  btns.forEach((b) => { b.disabled = true; });
+  try {
+    const r = await api('routine', { scope });
+    if (!r.ok) throw new Error(r.error);
+    closeSheet();
+    haptic('success');
+    toast(r.text);
+    loadPlanner();
+  } catch (e) {
+    toast('⚠️ ' + e.message);
+  } finally {
+    btns.forEach((b) => { b.disabled = false; });
+  }
 }
 
 function setSelect(id, value) {
@@ -558,6 +600,13 @@ function init() {
   });
   $('addBtn').onclick = openSheet;
   $('micBtn').onclick = toggleRecord;
+  $('rOnce').onclick = () => applyRoutine('once');
+  $('rWeek').onclick = () => applyRoutine('week');
+  $('rTask').onclick = () => {
+    if (!routineDraft) return;
+    routineDraft.notBlock = true;
+    fillForm(routineDraft, null, '');
+  };
   $('micFab').onclick = () => { openSheet(false); startRecord(); };
   $('closeSheet').onclick = closeSheet;
   $('sheet').onclick = (e) => { if (e.target.id === 'sheet') closeSheet(); };
