@@ -150,6 +150,18 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   display: grid; place-items: center; box-shadow: 0 10px 30px rgba(242, 114, 127, .35);
 }
 .fab svg { width: 26px; height: 26px; stroke-width: 2.5; }
+.fab-mic { right: 92px; background: var(--deep-azure); color: var(--text); box-shadow: 0 10px 30px rgba(10, 79, 166, .45); }
+
+/* Ovoz yoziş tugmasi */
+.btn-mic {
+  width: 100%; margin-top: 10px; border: 1px solid var(--line); border-radius: 14px; padding: 13px;
+  background: var(--deep-azure); color: var(--text); font-weight: 700; font-size: 16px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-mic svg { width: 20px; height: 20px; }
+.btn-mic.rec { background: var(--coral-rose); border-color: var(--coral-rose); color: var(--midnight-black); animation: recpulse 1.2s infinite; }
+.btn-mic:disabled { opacity: .6; }
+@keyframes recpulse { 50% { box-shadow: 0 0 0 8px rgba(242, 114, 127, .18); } }
 
 /* ---------- Pastdan çiqadigan oyna ---------- */
 .sheet { position: fixed; inset: 0; z-index: 10; background: rgba(11, 13, 23, .7); display: flex; align-items: flex-end; backdrop-filter: blur(4px); }

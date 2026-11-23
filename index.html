@@ -84,6 +84,9 @@
       <button class="tab" data-view="week">Hafta</button>
     </div>
     <main id="list" class="list"></main>
+    <button id="micFab" class="fab fab-mic" aria-label="Ovoz bilan qöşiş">
+      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+    </button>
     <button id="addBtn" class="fab" aria-label="Vazifa qöşiş">
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     </button>
@@ -101,6 +104,10 @@
 
       <div id="stepText">
         <textarea id="taskText" rows="2" placeholder="Masalan: ertaga 15:00 dökonga boriş, 1 soat"></textarea>
+        <button id="micBtn" class="btn-mic" type="button">
+          <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          <span id="micLabel">Gapirib aytiş</span>
+        </button>
         <button id="parseBtn" class="btn-accent">Davom etiş</button>
         <button id="manualBtn" class="btn-ghost">Qölda töldiriş</button>
       </div>

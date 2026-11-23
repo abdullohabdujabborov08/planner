@@ -24,6 +24,15 @@ const MODULES = [
 let view = 'day';          // day | tomorrow | week
 let openMenu = null;       // oçiq turgan vazifa menyusi (id)
 
+// Ovoz yoziş holati
+let rec = null;
+let recStream = null;
+let recChunks = [];
+let recTimer = null;
+let recStart = 0;
+let recCancel = false;
+const REC_MAX_SEC = 60;
+
 const $ = (id) => document.getElementById(id);
 
 // ---------- Server bilan aloqa ----------
@@ -257,15 +266,119 @@ async function act(action, it, row) {
 
 // ---------- Yangi vazifa ----------
 
-function openSheet() {
+function openSheet(focus = true) {
   $('taskText').value = '';
   $('stepText').classList.remove('hidden');
   $('stepForm').classList.add('hidden');
   $('formWarn').classList.add('hidden');
   $('sheet').classList.remove('hidden');
-  setTimeout(() => $('taskText').focus(), 60);
+  if (focus) setTimeout(() => $('taskText').focus(), 60);
 }
-function closeSheet() { $('sheet').classList.add('hidden'); }
+function closeSheet() {
+  if (rec && rec.state === 'recording') { recCancel = true; stopRecord(); }
+  $('sheet').classList.add('hidden');
+}
+
+// ---------- Ovoz bilan vazifa ----------
+
+function toggleRecord() {
+  if (rec && rec.state === 'recording') stopRecord();
+  else startRecord();
+}
+
+/** Mikrofonni yoqib, yozişni boşlaydi */
+async function startRecord() {
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    toast('Bu qurilmada ovoz yoziş işlamaydi');
+    return;
+  }
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    toast('🎙 Mikrofonga ruxsat bering: Sozlamalar → Safari → Mikrofon');
+    return;
+  }
+  recChunks = [];
+  recCancel = false;
+  rec = new MediaRecorder(recStream);
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) recChunks.push(e.data); };
+  rec.onstop = onRecordStop;
+  rec.start();
+  recStart = Date.now();
+  setMicState('rec');
+  haptic('light');
+  recTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - recStart) / 1000);
+    $('micLabel').textContent = 'Töxtatiş · ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    if (s >= REC_MAX_SEC) stopRecord();
+  }, 250);
+}
+
+function stopRecord() {
+  clearInterval(recTimer);
+  if (rec && rec.state === 'recording') rec.stop();
+  if (recStream) recStream.getTracks().forEach((t) => t.stop());
+}
+
+/** Yoziş tugadi: WAV'ga aylantirib, AI'ga yuboramiz */
+async function onRecordStop() {
+  if (recCancel) { setMicState('idle'); return; }
+  setMicState('busy');
+  try {
+    if (Date.now() - recStart < 800) throw new Error('Juda qisqa. Bosing, gapiring, keyin yana bosing.');
+    const blob = new Blob(recChunks, { type: (rec && rec.mimeType) || 'audio/mp4' });
+    const wav = await toWav16k(blob);
+    const r = await api('parse', { audio: { mime: 'audio/wav', data: wav } });
+    if (!r.ok) throw new Error(r.error);
+    haptic('success');
+    fillForm(r.draft, r.auto, r.warn, r.heard);
+  } catch (e) {
+    toast('⚠️ ' + e.message);
+  } finally {
+    setMicState('idle');
+  }
+}
+
+function setMicState(state) {
+  const b = $('micBtn');
+  b.classList.toggle('rec', state === 'rec');
+  b.disabled = state === 'busy';
+  $('parseBtn').classList.toggle('hidden', state !== 'idle');
+  $('manualBtn').classList.toggle('hidden', state !== 'idle');
+  $('micLabel').textContent = state === 'rec' ? 'Töxtatiş · 0:00' : state === 'busy' ? 'Tuşunyapman…' : 'Gapirib aytiş';
+}
+
+/** Har qanday yozuvni 16 kHz mono WAV'ga aylantiradi (Gemini uni aniq qabul qiladi) */
+async function toWav16k(blob) {
+  const buf = await blob.arrayBuffer();
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC();
+  const audio = await new Promise((res, rej) => ctx.decodeAudioData(buf, res, rej));
+  if (ctx.close) ctx.close();
+  const rate = 16000;
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const off = new OAC(1, Math.ceil(audio.duration * rate), rate);
+  const src = off.createBufferSource();
+  src.buffer = audio;
+  src.connect(off.destination);
+  src.start(0);
+  const pcm = (await off.startRendering()).getChannelData(0);
+
+  const view = new DataView(new ArrayBuffer(44 + pcm.length * 2));
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); view.setUint32(4, 36 + pcm.length * 2, true); str(8, 'WAVE');
+  str(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true); view.setUint32(28, rate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  str(36, 'data'); view.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) {
+    const v = Math.max(-1, Math.min(1, pcm[i]));
+    view.setInt16(44 + i * 2, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+  }
+  const u8 = new Uint8Array(view.buffer);
+  let s = '';
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
 
 /** AI matnni tahlil qiladi → töldirilgan forma */
 async function parseText() {
@@ -290,7 +403,7 @@ function defaultDate() {
   return view === 'tomorrow' ? ymd(today(1)) : ymd(today(0));
 }
 
-function fillForm(t, auto, warn) {
+function fillForm(t, auto, warn, heard) {
   $('fTitle').value = t.title || '';
   $('fDate').value = t.date || defaultDate();
   $('fStart').value = t.start ? t.start.padStart(5, '0') : '';
@@ -299,6 +412,7 @@ function fillForm(t, auto, warn) {
   setSelect('fCategory', t.category || 'Boşqa');
   $('fNote').value = t.note || '';
   const notes = [];
+  if (heard) notes.push('🎙 «' + heard + '»');
   if (auto === 'free') notes.push('🕒 Vaqtni böş oraliqqa özim qöydim.');
   if (auto === 'soft') notes.push('🕒 Böş vaqt yöq, iş/yöl vaqtiga qöydim.');
   if (warn) notes.push(warn);
@@ -443,6 +557,8 @@ function init() {
     };
   });
   $('addBtn').onclick = openSheet;
+  $('micBtn').onclick = toggleRecord;
+  $('micFab').onclick = () => { openSheet(false); startRecord(); };
   $('closeSheet').onclick = closeSheet;
   $('sheet').onclick = (e) => { if (e.target.id === 'sheet') closeSheet(); };
   $('parseBtn').onclick = parseText;
