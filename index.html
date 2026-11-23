@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>Şaxsiy Yordamçi</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-view="day" role="tab">Bugun</button>
+      <button class="tab" data-view="tomorrow" role="tab">Ertaga</button>
+      <button class="tab" data-view="week" role="tab">Hafta</button>
+    </div>
+    <button id="homeBtn" class="home hidden" title="Telefon ekraniga qöşiş">📲</button>
+  </header>
+
+  <main id="list" class="list"></main>
+
+  <button id="addBtn" class="fab" aria-label="Vazifa qöşiş">＋</button>
+
+  <!-- Vazifa qöşiş oynasi -->
+  <div id="sheet" class="sheet hidden">
+    <div class="sheet-card">
+      <div class="sheet-head">
+        <b>Yangi vazifa</b>
+        <button id="closeSheet" class="ghost">✕</button>
+      </div>
+
+      <div id="stepText">
+        <textarea id="taskText" rows="2" placeholder="Masalan: ertaga 15:00 dökonga boriş, 1 soat"></textarea>
+        <button id="parseBtn" class="primary">Davom etiş</button>
+      </div>
+
+      <form id="stepForm" class="hidden">
+        <label>Nomi<input id="fTitle" required maxlength="100"></label>
+        <div class="row">
+          <label>Sana<input id="fDate" type="date" required></label>
+          <label>Vaqt<input id="fStart" type="time" required></label>
+        </div>
+        <div class="row">
+          <label>Davomiylik
+            <select id="fDuration">
+              <option value="15">15 daq</option><option value="30">30 daq</option>
+              <option value="45">45 daq</option><option value="60">1 soat</option>
+              <option value="90">1,5 soat</option><option value="120">2 soat</option>
+              <option value="180">3 soat</option>
+            </select>
+          </label>
+          <label>Muhimlik
+            <select id="fPriority"><option>Yuqori</option><option selected>Örta</option><option>Past</option></select>
+          </label>
+        </div>
+        <label>Kategoriya
+          <select id="fCategory">
+            <option>Öqiş</option><option>Iş</option><option>Dökon</option>
+            <option>Sport</option><option>Şaxsiy</option><option selected>Boşqa</option>
+          </select>
+        </label>
+        <label>Izoh<input id="fNote" maxlength="200" placeholder="ixtiyoriy"></label>
+        <p id="formWarn" class="warn hidden"></p>
+        <button type="submit" id="saveBtn" class="primary">Saqlaş</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>
