@@ -1,4 +1,4 @@
-// Şaxsiy Yordamçi — ilova (PWA) va Telegram Mini App uçun bitta kod
+// Solih — ilova (PWA) va Telegram Mini App uçun bitta kod
 // Ma'lumot Apps Script Web App'dan keladi.
 // Telegram içida: initData imzosi; alohida ilovada: parol bilan olingan token.
 
