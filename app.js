@@ -212,7 +212,7 @@ function renderItem(it, isToday) {
   const late = it.kind === 'task' && !isDone && (it.status === 'Keçikdi' || (isToday && it.end < nowHM()));
   row.className = 'item ' + it.kind + (it.kind === 'block' && !it.soft ? ' hard' : '') + (isDone ? ' done' : '') + (late ? ' late' : '');
   row.innerHTML = (it.kind === 'block' ? '<span class="dot"><i></i></span>' : '') +
-    '<span class="time">' + it.start + '–' + it.end + '</span><span class="title">' + esc(it.title) + '</span>';
+    '<span class="time">' + it.start + '–' + it.end + '</span><span class="title">' + (it.rec ? '🔁 ' : '') + esc(it.title) + '</span>';
   wrap.appendChild(row);
   if (it.kind !== 'task') return wrap;
 
@@ -415,6 +415,8 @@ function fillForm(t, auto, warn, heard) {
   setSelect('fDuration', t.duration || 30);
   setSelect('fPriority', t.priority || 'Örta');
   setSelect('fCategory', t.category || 'Boşqa');
+  setSelect('fRecur', t.recurrence || 'Yöq');
+  updateRemindHint();
   $('fNote').value = t.note || '';
   const notes = [];
   if (heard) notes.push('🎙 «' + heard + '»');
@@ -464,6 +466,20 @@ async function applyRoutine(scope) {
   }
 }
 
+// Muhimlik → necha daqiqa oldin eslatiladi (serverdagi Scheduler.gs bilan bir xil)
+const REMIND_LEVELS = { 'Yuqori': [1440, 60, 5], 'Örta': [60], 'Past': [5] };
+
+/** Formada: «🔔 Eslatma: 1 soat oldin va vaqtida» — muhimlik va takrorlanişga qarab */
+function updateRemindHint() {
+  const prio = $('fPriority').value;
+  const recur = $('fRecur').value;
+  let list = (REMIND_LEVELS[prio] || REMIND_LEVELS['Örta']).slice();
+  if (recur === 'Har kuni') list = list.filter((n) => n < 1440); // har kuni «1 kun oldin» kerak emas
+  const span = (n) => n >= 1440 ? Math.round(n / 1440) + ' kun' : n >= 60 ? Math.floor(n / 60) + ' soat' + (n % 60 ? ' ' + (n % 60) + ' daqiqa' : '') : n + ' daqiqa';
+  $('fRemind').textContent = '🔔 Eslatma: ' + (list.length ? list.map(span).join(', ') + ' oldin va ' : '') + 'vaqtida' +
+    (recur !== 'Yöq' ? ' · 🔁 ' + recur.toLowerCase() : '');
+}
+
 function setSelect(id, value) {
   const el = $(id);
   const v = String(value);
@@ -485,6 +501,7 @@ async function saveTask(force) {
     duration: Number($('fDuration').value),
     priority: $('fPriority').value,
     category: $('fCategory').value,
+    recurrence: $('fRecur').value,
     note: $('fNote').value.trim()
   };
   const b = $('saveBtn');
@@ -682,6 +699,8 @@ function init() {
   });
   $('addBtn').onclick = openSheet;
   $('micBtn').onclick = toggleRecord;
+  $('fPriority').onchange = updateRemindHint;
+  $('fRecur').onchange = updateRemindHint;
   $('pushBtn').onclick = enablePush;
   $('pushTestBtn').onclick = testPush;
   $('rOnce').onclick = () => applyRoutine('once');

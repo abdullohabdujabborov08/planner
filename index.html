@@ -145,12 +145,20 @@
             <select id="fPriority"><option>Yuqori</option><option selected>Örta</option><option>Past</option></select>
           </label>
         </div>
-        <label>Kategoriya
-          <select id="fCategory">
-            <option>Öqiş</option><option>Iş</option><option>Dökon</option>
-            <option>Sport</option><option>Şaxsiy</option><option selected>Boşqa</option>
-          </select>
-        </label>
+        <div class="row">
+          <label>Kategoriya
+            <select id="fCategory">
+              <option>Öqiş</option><option>Iş</option><option>Dökon</option>
+              <option>Sport</option><option>Şaxsiy</option><option selected>Boşqa</option>
+            </select>
+          </label>
+          <label>Takrorlaniş
+            <select id="fRecur">
+              <option selected>Yöq</option><option>Har kuni</option><option>Har hafta</option><option>Har oy</option>
+            </select>
+          </label>
+        </div>
+        <p id="fRemind" class="remind"></p>
         <label>Izoh<input id="fNote" maxlength="200" placeholder="ixtiyoriy"></label>
         <p id="formWarn" class="warn hidden"></p>
         <button type="submit" id="saveBtn" class="btn-accent">Saqlaş</button>
