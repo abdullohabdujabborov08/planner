@@ -1,7 +1,7 @@
 {
-  "name": "Şaxsiy Yordamçi",
-  "short_name": "Yordamçi",
-  "description": "Abdullohning şaxsiy yordamçisi: reja, vazifalar va agentlar",
+  "name": "Solih",
+  "short_name": "Solih",
+  "description": "Solih — Abdullohning şaxsiy yordamçisi: reja, vazifalar va agentlar",
   "lang": "uz",
   "start_url": "./#home",
   "scope": "./",
