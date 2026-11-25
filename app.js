@@ -128,6 +128,7 @@ function renderModules() {
 }
 
 async function loadHome() {
+  refreshPushBox().catch(() => {});
   const now = new Date();
   const h = now.getHours();
   $('greet').textContent = h < 5 ? 'Xayrli tun' : h < 12 ? 'Xayrli tong' : h < 18 ? 'Xayrli kun' : 'Xayrli keç';
@@ -564,6 +565,87 @@ function isStandalone() {
   return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 }
 
+// ---------- Push-bildirişlar (alohida ilovada; iPhone'da ilova ekranga örnatilgan bölişi şart) ----------
+
+function pushSupported() {
+  return !IN_TELEGRAM && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+/** base64url → baytlar (VAPID ommaviy kaliti uçun) */
+function b64uToBytes(s) {
+  const pad = '='.repeat((4 - s.length % 4) % 4);
+  const bin = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+/** Bosh ekrandagi «Bildirişlar» kartasini holatga qarab körsatadi */
+async function refreshPushBox() {
+  const box = $('pushBox');
+  if (IN_TELEGRAM || !getToken()) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const btn = $('pushBtn');
+  const state = $('pushState');
+  const test = $('pushTestBtn');
+  test.classList.add('hidden');
+  btn.classList.add('hidden');
+
+  if (/iPhone|iPad/.test(navigator.userAgent) && !isStandalone()) {
+    state.textContent = 'Avval ilovani ekranga örnating (pastdagi yöriqnoma), keyin şu yerdan yoqasiz.';
+    return;
+  }
+  if (!pushSupported()) { state.textContent = 'Bu brauzer push-bildirişni qöllamaydi.'; return; }
+  if (Notification.permission === 'denied') {
+    state.textContent = "Bildirişlar öçirilgan. iPhone Sozlamalar → Bildirişlar → Solih bölimidan ruxsat bering.";
+    return;
+  }
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  if (sub && Notification.permission === 'granted') {
+    state.textContent = '✅ Yoqilgan: eslatmalar Telegram bilan bir vaqtda şu telefonga ham keladi.';
+    test.classList.remove('hidden');
+  } else {
+    state.textContent = 'Eslatmalar Telegram bilan bir vaqtda telefon ekraniga ham kelsin.';
+    btn.classList.remove('hidden');
+  }
+}
+
+/** Ruxsat söraydi, obuna böladi va obunani serverga saqlaydi */
+async function enablePush() {
+  const btn = $('pushBtn');
+  btn.disabled = true;
+  btn.textContent = 'Yoqilmoqda…';
+  try {
+    const perm = await Notification.requestPermission(); // iPhone faqat tugma bosilganda söraydi
+    if (perm !== 'granted') throw new Error('Ruxsat berilmadi');
+    const k = await api('pushKey');
+    if (!k.ok || !k.key) throw new Error('Server kaliti topilmadi');
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(k.key) });
+    const device = /iPhone|iPad/.test(navigator.userAgent) ? 'iPhone' : /Android/.test(navigator.userAgent) ? 'Android' : 'Kompyuter';
+    const r = await api('pushSubscribe', { sub: sub.toJSON(), device });
+    if (!r.ok) throw new Error(r.error || 'Saqlanmadi');
+    haptic('success');
+    toast('🔔 Bildirişlar yoqildi');
+  } catch (e) {
+    toast('⚠️ ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Bildirişlarni yoqiş';
+    refreshPushBox().catch(() => {});
+  }
+}
+
+/** Sinov bildirişi */
+async function testPush() {
+  try {
+    const r = await api('pushTest');
+    toast(r.ok && r.sent ? '📨 Yuborildi — bir neçta soniyada keladi' : '⚠️ Yuborilmadi');
+  } catch (e) {
+    toast('⚠️ ' + e.message);
+  }
+}
+
 // ---------- Işga tuşiriş ----------
 
 function init() {
@@ -600,6 +682,8 @@ function init() {
   });
   $('addBtn').onclick = openSheet;
   $('micBtn').onclick = toggleRecord;
+  $('pushBtn').onclick = enablePush;
+  $('pushTestBtn').onclick = testPush;
   $('rOnce').onclick = () => applyRoutine('once');
   $('rWeek').onclick = () => applyRoutine('week');
   $('rTask').onclick = () => {
