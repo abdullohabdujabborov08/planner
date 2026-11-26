@@ -59,9 +59,52 @@
           </select></div>
         <div><label for="voice">Ovoz</label>
           <select id="voice">
-            <option>Kore</option><option>Puck</option><option>Charon</option><option>Aoede</option>
-            <option>Fenrir</option><option>Leda</option><option>Orus</option><option>Zephyr</option>
+            <optgroup label="Erkak — yangi">
+              <option value="Achird">Achird — iliq, döstona</option>
+              <option value="Algieba">Algieba — silliq, xotirjam</option>
+              <option value="Algenib">Algenib — salmoqli, past</option>
+              <option value="Alnilam">Alnilam — qat'iy, işonçli</option>
+              <option value="Iapetus">Iapetus — tiniq</option>
+              <option value="Umbriel">Umbriel — erkin</option>
+              <option value="Enceladus">Enceladus — yumşoq, nafasli</option>
+              <option value="Rasalgethi">Rasalgethi — axborotçi</option>
+              <option value="Schedar">Schedar — bir tekis</option>
+              <option value="Zubenelgenubi">Zubenelgenubi — kundalik</option>
+              <option value="Sadachbia">Sadachbia — jonli</option>
+              <option value="Sadaltager">Sadaltager — ustozona</option>
+            </optgroup>
+            <optgroup label="Ayol — yangi">
+              <option value="Sulafat">Sulafat — iliq</option>
+              <option value="Callirrhoe">Callirrhoe — erkin</option>
+              <option value="Autonoe">Autonoe — yorqin</option>
+              <option value="Despina">Despina — silliq</option>
+              <option value="Erinome">Erinome — tiniq</option>
+              <option value="Laomedeia">Laomedeia — şöx</option>
+              <option value="Achernar">Achernar — yumşoq</option>
+              <option value="Gacrux">Gacrux — yetuk</option>
+              <option value="Pulcherrima">Pulcherrima — dadil</option>
+              <option value="Vindemiatrix">Vindemiatrix — muloyim</option>
+            </optgroup>
+            <optgroup label="Eşitilganlar">
+              <option value="Charon">Charon</option><option value="Orus">Orus</option>
+              <option value="Puck">Puck</option><option value="Fenrir">Fenrir</option>
+              <option value="Kore">Kore</option><option value="Zephyr">Zephyr</option>
+              <option value="Leda">Leda</option><option value="Aoede">Aoede</option>
+            </optgroup>
           </select></div>
+      </div>
+      <div style="height:10px"></div>
+      <label for="style">Uslub</label>
+      <select id="style">
+        <option value="dost">Döstona</option>
+        <option value="xotirjam">Xotirjam</option>
+        <option value="tetik">Tetik</option>
+        <option value="rasmiy">Rasmiy</option>
+      </select>
+      <div style="height:10px"></div>
+      <div class="row">
+        <button id="sampleBtn" class="btn-ghost">🔊 Namuna</button>
+        <button id="nextBtn" class="btn-ghost">Keyingi ovoz ▶</button>
       </div>
       <div style="height:10px"></div>
       <button id="connectBtn" class="btn-accent">Ulaniş</button>
@@ -147,8 +190,10 @@ function addText(who, text) {
 }
 
 // ---------- Ulaniş ----------
-async function connect() {
-  if (ws) { hangup(); return; }
+async function connect(sample) {
+  if (ws) { hangup(); if (!sample) return; await waitClosed(); }
+  sampleMode = !!sample;
+  savePrefs();
   // iPhone ovozni faqat tugma bosilganda yoqişga ruxsat beradi — kontekstni şu yerda yaratamiz
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!ctx) ctx = new AC();
@@ -161,7 +206,7 @@ async function connect() {
   const t0 = performance.now();
   let r;
   try {
-    r = await api('liveToken', { model: $('model').value, voice: $('voice').value });
+    r = await api('liveToken', { model: $('model').value, voice: $('voice').value, style: $('style').value });
     if (!r.ok) throw new Error(r.error);
   } catch (e) { status('⚠️ ' + e.message); $('connectBtn').disabled = false; return; }
 
@@ -188,11 +233,11 @@ async function connect() {
 function onServer(msg, t0, r) {
   if (msg.setupComplete) {
     ready = true;
-    status('✅ Ulandi: ' + r.model + ', ovoz ' + r.voice + ' (' + Math.round(performance.now() - t0) + ' ms)');
+    status('✅ Ulandi: ovoz ' + r.voice + ', uslub ' + r.style + ' (' + Math.round(performance.now() - t0) + ' ms)');
     $('connectBtn').disabled = false;
     $('connectBtn').textContent = 'Tugatiş';
     $('mic').disabled = false; $('text').disabled = false; $('sendBtn').disabled = false;
-    bubble('sys', 'Solih tayyor. Gapiring yoki yozing.');
+    if (sampleMode) { sayHello(); } else { bubble('sys', 'Solih tayyor. Gapiring yoki yozing.'); }
     return;
   }
   if (msg.goAway) bubble('sys', 'Server aloqani tez orada uzadi (' + (msg.goAway.timeLeft || '') + ')');
@@ -335,10 +380,52 @@ function flushMic() {
   ws.send(JSON.stringify({ realtimeInput: { audio: { data: btoa(s), mimeType: 'audio/pcm;rate=16000' } } }));
 }
 
+// ---------- Ovoz namunasi ----------
+let sampleMode = false;
+const PREF_KEY = 'sy_live_prefs';
+
+/** Tanlangan ovoz va uslubni eslab qoladi */
+function savePrefs() {
+  try { localStorage.setItem(PREF_KEY, JSON.stringify({ voice: $('voice').value, style: $('style').value, model: $('model').value })); } catch (e) {}
+}
+function loadPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null');
+    if (!p) return;
+    if (p.voice) $('voice').value = p.voice;
+    if (p.style) $('style').value = p.style;
+    if (p.model) $('model').value = p.model;
+  } catch (e) {}
+}
+
+/** Eski aloqa töliq yopilişini kutadi */
+function waitClosed() {
+  return new Promise((res) => { let n = 0; const t = setInterval(() => { if (!ws || ++n > 30) { clearInterval(t); res(); } }, 100); });
+}
+
+/** Namuna: Solih tanlangan ovozda bir xil gapni aytadi — ovozlarni solişţiriş oson */
+function sayHello() {
+  const label = $('voice').options[$('voice').selectedIndex].text;
+  bubble('sys', '🔊 ' + label);
+  ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: 'Ovoz sinovi. Boşqa hech narsa qöşmasdan, faqat şu gapni tabiiy ohangda ayt: «Salom, Abdulloh! Men Solihman. Bugungi rejalaringizni birga tuzamiz, qani, nimadan boşlaymiz?»' }] }], turnComplete: true } }));
+  sentAt = performance.now(); gotFirst = false;
+}
+
+function nextVoice() {
+  const s = $('voice');
+  s.selectedIndex = (s.selectedIndex + 1) % s.options.length;
+  connect(true);
+}
+
 // ---------- Boşlaş ----------
 $('loginBtn').onclick = login;
 $('pass').onkeydown = (e) => { if (e.key === 'Enter') login(); };
-$('connectBtn').onclick = connect;
+$('connectBtn').onclick = () => connect(false);
+$('sampleBtn').onclick = () => connect(true);
+$('nextBtn').onclick = nextVoice;
+$('voice').onchange = savePrefs;
+$('style').onchange = savePrefs;
+loadPrefs();
 $('mic').onclick = toggleMic;
 $('sendBtn').onclick = sendText;
 $('text').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); sendText(); } };
