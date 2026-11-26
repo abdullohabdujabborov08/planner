@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0D17">
+<title>Solih — jonli suhbat sinovi</title>
+<style>
+  :root { --bg: #0B0D17; --card: #151827; --line: #252a40; --text: #eef0f7; --muted: #8b90a8; --accent: rgb(242,114,127); --blue: rgb(10,79,166); }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: max(16px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom)); }
+  h1 { font-size: 22px; margin: 4px 0 2px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+  label { display: block; color: var(--muted); font-size: 13px; margin: 0 0 4px; }
+  select, input { width: 100%; background: #0f1220; color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-size: 16px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  button { border: 0; border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 600; color: #fff; background: var(--blue); width: 100%; }
+  button:disabled { opacity: .45; }
+  .btn-accent { background: var(--accent); color: #1a0d10; }
+  .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+  #status { font-size: 14px; color: var(--muted); margin: 10px 0 0; min-height: 20px; }
+  #mic { height: 72px; font-size: 18px; }
+  #mic.on { background: var(--accent); color: #1a0d10; }
+  .meter { height: 6px; background: #0f1220; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .08s; }
+  #log { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; }
+  .msg { padding: 10px 12px; border-radius: 14px; max-width: 88%; white-space: pre-wrap; }
+  .me { align-self: flex-end; background: var(--blue); }
+  .bot { align-self: flex-start; background: #232842; }
+  .sys { align-self: center; color: var(--muted); font-size: 13px; text-align: center; }
+  .hidden { display: none !important; }
+  .send { display: flex; gap: 8px; margin-top: 10px; }
+  .send input { flex: 1; }
+  .send button { width: auto; padding: 0 18px; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <h1>🎙 Solih — jonli suhbat</h1>
+  <div class="sub">1-bosqiç: özbekça ovoz sifatini sinaş</div>
+
+  <div class="card hidden" id="loginBox">
+    <label for="pass">Ilova paroli</label>
+    <input id="pass" type="password" autocomplete="current-password">
+    <div style="height:10px"></div>
+    <button id="loginBtn">Kiriş</button>
+    <div class="hint" id="loginErr"></div>
+  </div>
+
+  <div id="main" class="hidden">
+    <div class="card">
+      <div class="row">
+        <div><label for="model">Model</label>
+          <select id="model">
+            <option value="gemini-3.1-flash-live-preview">3.1 Flash Live (bepul)</option>
+            <option value="gemini-3.8-live">3.8 Live (yangi)</option>
+          </select></div>
+        <div><label for="voice">Ovoz</label>
+          <select id="voice">
+            <option>Kore</option><option>Puck</option><option>Charon</option><option>Aoede</option>
+            <option>Fenrir</option><option>Leda</option><option>Orus</option><option>Zephyr</option>
+          </select></div>
+      </div>
+      <div style="height:10px"></div>
+      <button id="connectBtn" class="btn-accent">Ulaniş</button>
+      <div id="status">Ulaniş tugmasini bosing.</div>
+    </div>
+
+    <div class="card">
+      <button id="mic" disabled>🎙 Mikrofonni yoqiş</button>
+      <div class="meter"><i id="level"></i></div>
+      <div class="send">
+        <input id="text" placeholder="Yoki yozing…" disabled enterkeyhint="send">
+        <button id="sendBtn" disabled>➤</button>
+      </div>
+      <div class="hint">Sinab köring: «Salom Solih, bugun nima rejalarim bor?», «Ertaga nimalar qilişim kerak?», Solih gapirayotganda uni bölib köring.</div>
+    </div>
+
+    <div class="card"><div id="log"></div></div>
+  </div>
+
+<script>
+// Solih — jonli suhbat sinovi (Gemini Live). Telefon Gemini'ga toğridan-toğri ulanadi;
+// Apps Script faqat bir martalik ruxsatnoma beradi (asosiy kalit serverda qoladi).
+const API_URL = 'https://script.google.com/macros/s/AKfycby-HPWDSm7ImB9E1gvnynj0pLlgyYkM6T-iVB5bvGE0hXVjckrF6Z_A1BXfKQu61dFC/exec';
+const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
+const TOKEN_KEY = 'sy_token';
+const IN_RATE = 16000;   // Gemini'ga yuboriladigan ovoz: 16 kHz
+const OUT_RATE = 24000;  // Gemini qaytaradigan ovoz: 24 kHz
+const $ = (id) => document.getElementById(id);
+
+let ws = null, ctx = null, ready = false;
+let mic = null;                 // { stream, src, node, sink }
+let pending = [], resPos = 0;   // mikrofon namunalari
+let sources = [], nextTime = 0; // çalinayotgan ovoz böläklari
+let meUi = null, botUi = null;  // hozirgi gap pufakçalari
+let sentAt = 0, gotFirst = true;
+
+// ---------- Server ----------
+function getToken() { try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; } }
+function setToken(t) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
+
+async function api(action, payload) {
+  const res = await fetch(API_URL + '?api=1', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action: action, token: getToken() }, payload || {}))
+  });
+  const data = await res.json();
+  if (data.error === 'auth') { setToken(null); showLogin(); throw new Error('Qayta kiring'); }
+  return data;
+}
+
+function showLogin() { $('loginBox').classList.remove('hidden'); $('main').classList.add('hidden'); }
+function showMain() { $('loginBox').classList.add('hidden'); $('main').classList.remove('hidden'); }
+
+async function login() {
+  $('loginErr').textContent = '';
+  $('loginBtn').disabled = true;
+  try {
+    const r = await api('login', { password: $('pass').value, device: 'iPhone (suhbat sinovi)' });
+    if (!r.ok) throw new Error(r.error || 'Kiriş bölmadi');
+    setToken(r.token);
+    $('pass').value = '';
+    showMain();
+  } catch (e) { $('loginErr').textContent = '⚠️ ' + e.message; }
+  finally { $('loginBtn').disabled = false; }
+}
+
+// ---------- Suhbat oynasi ----------
+function status(t) { $('status').textContent = t; }
+function bubble(cls, text) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls;
+  d.textContent = text;
+  $('log').appendChild(d);
+  $('log').scrollTop = $('log').scrollHeight;
+  return d;
+}
+function addText(who, text) {
+  if (!text) return;
+  if (who === 'me') { if (!meUi) meUi = bubble('me', ''); meUi.textContent += text; }
+  else { if (!botUi) botUi = bubble('bot', ''); botUi.textContent += text; }
+  $('log').scrollTop = $('log').scrollHeight;
+}
+
+// ---------- Ulaniş ----------
+async function connect() {
+  if (ws) { hangup(); return; }
+  // iPhone ovozni faqat tugma bosilganda yoqişga ruxsat beradi — kontekstni şu yerda yaratamiz
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!ctx) ctx = new AC();
+  if (ctx.state !== 'running') await ctx.resume();
+  const unlock = ctx.createBuffer(1, 1, 22050);
+  const s = ctx.createBufferSource(); s.buffer = unlock; s.connect(ctx.destination); s.start(0);
+
+  $('connectBtn').disabled = true;
+  status('Ruxsatnoma olinmoqda…');
+  const t0 = performance.now();
+  let r;
+  try {
+    r = await api('liveToken', { model: $('model').value, voice: $('voice').value });
+    if (!r.ok) throw new Error(r.error);
+  } catch (e) { status('⚠️ ' + e.message); $('connectBtn').disabled = false; return; }
+
+  status('Gemini\'ga ulanmoqda…');
+  ws = new WebSocket(WS_URL + '?access_token=' + encodeURIComponent(r.token));
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ setup: { model: 'models/' + r.model } }));
+  };
+  ws.onmessage = async (ev) => {
+    const raw = typeof ev.data === 'string' ? ev.data : await ev.data.text();
+    let msg;
+    try { msg = JSON.parse(raw); } catch (e) { return; }
+    onServer(msg, t0, r);
+  };
+  ws.onerror = () => status('⚠️ Aloqa xatosi');
+  ws.onclose = (ev) => {
+    const why = ev.reason ? ' — ' + ev.reason : '';
+    bubble('sys', 'Aloqa uzildi (' + ev.code + why + ')');
+    status('Uzildi. Qayta ulaniş uçun «Ulaniş»ni bosing.');
+    cleanup();
+  };
+}
+
+function onServer(msg, t0, r) {
+  if (msg.setupComplete) {
+    ready = true;
+    status('✅ Ulandi: ' + r.model + ', ovoz ' + r.voice + ' (' + Math.round(performance.now() - t0) + ' ms)');
+    $('connectBtn').disabled = false;
+    $('connectBtn').textContent = 'Tugatiş';
+    $('mic').disabled = false; $('text').disabled = false; $('sendBtn').disabled = false;
+    bubble('sys', 'Solih tayyor. Gapiring yoki yozing.');
+    return;
+  }
+  if (msg.goAway) bubble('sys', 'Server aloqani tez orada uzadi (' + (msg.goAway.timeLeft || '') + ')');
+  const sc = msg.serverContent;
+  if (!sc) return;
+  if (sc.interrupted) { stopPlayback(); botUi = null; }
+  if (sc.inputTranscription && sc.inputTranscription.text) {
+    if (botUi) botUi = null;
+    addText('me', sc.inputTranscription.text);
+    sentAt = performance.now(); gotFirst = false;
+  }
+  if (sc.outputTranscription && sc.outputTranscription.text) { meUi = null; addText('bot', sc.outputTranscription.text); }
+  const parts = (sc.modelTurn && sc.modelTurn.parts) || [];
+  parts.forEach((p) => {
+    if (p.inlineData && p.inlineData.data) {
+      if (!gotFirst && sentAt) { gotFirst = true; status('⏱ Javob boşlandi: ' + Math.round(performance.now() - sentAt) + ' ms'); }
+      play(p.inlineData.data);
+    }
+  });
+  if (sc.turnComplete) { meUi = null; botUi = null; }
+}
+
+function hangup() {
+  if (ws) { try { ws.close(1000, 'tugatildi'); } catch (e) {} }
+}
+
+function cleanup() {
+  stopMic(); stopPlayback();
+  ws = null; ready = false; meUi = null; botUi = null;
+  $('connectBtn').disabled = false; $('connectBtn').textContent = 'Ulaniş';
+  $('mic').disabled = true; $('text').disabled = true; $('sendBtn').disabled = true;
+}
+
+// ---------- Matn yuboriş ----------
+function sendText() {
+  const t = $('text').value.trim();
+  if (!t || !ready) return;
+  stopPlayback();
+  meUi = null; botUi = null;
+  bubble('me', t);
+  ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: t }] }], turnComplete: true } }));
+  $('text').value = '';
+  sentAt = performance.now(); gotFirst = false;
+}
+
+// ---------- Ovozni çaliş (24 kHz PCM) ----------
+function play(b64) {
+  const bin = atob(b64);
+  const n = bin.length >> 1;
+  const buf = ctx.createBuffer(1, n, OUT_RATE);
+  const ch = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) {
+    let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8);
+    if (v >= 32768) v -= 65536;
+    ch[i] = v / 32768;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  const at = Math.max(ctx.currentTime + 0.03, nextTime);
+  src.start(at);
+  nextTime = at + buf.duration;
+  sources.push(src);
+  src.onended = () => { sources = sources.filter((x) => x !== src); };
+}
+
+function stopPlayback() {
+  sources.forEach((s) => { try { s.stop(); } catch (e) {} });
+  sources = []; nextTime = 0;
+}
+
+// ---------- Mikrofon (16 kHz PCM) ----------
+const WORKLET = "class P extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('pcm-cap',P);";
+
+async function toggleMic() {
+  if (mic) { stopMic(); return; }
+  try {
+    if (ctx.state !== 'running') await ctx.resume();
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+    const src = ctx.createMediaStreamSource(stream);
+    const sink = ctx.createGain(); sink.gain.value = 0; sink.connect(ctx.destination);
+    let node;
+    if (ctx.audioWorklet) {
+      const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
+      await ctx.audioWorklet.addModule(url);
+      node = new AudioWorkletNode(ctx, 'pcm-cap');
+      node.port.onmessage = (e) => onSamples(e.data);
+    } else {
+      node = ctx.createScriptProcessor(4096, 1, 1);
+      node.onaudioprocess = (e) => onSamples(e.inputBuffer.getChannelData(0).slice(0));
+    }
+    src.connect(node); node.connect(sink);
+    mic = { stream: stream, src: src, node: node, sink: sink };
+    pending = []; resPos = 0;
+    $('mic').classList.add('on'); $('mic').textContent = '⏹ Mikrofonni öçiriş';
+    bubble('sys', 'Mikrofon yoqildi — bemalol gapiring.');
+  } catch (e) {
+    status('⚠️ Mikrofon: ' + e.message + '. Sozlamalar → Safari → Mikrofon ruxsatini tekşiring.');
+  }
+}
+
+function stopMic() {
+  if (!mic) return;
+  try { mic.stream.getTracks().forEach((t) => t.stop()); mic.src.disconnect(); mic.node.disconnect(); mic.sink.disconnect(); } catch (e) {}
+  mic = null;
+  $('mic').classList.remove('on'); $('mic').textContent = '🎙 Mikrofonni yoqiş';
+  $('level').style.width = '0';
+  if (ws && ready) ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+}
+
+/** 48 kHz (yoki boşqa) → 16 kHz: har oynadagi namunalar örtaçasi */
+function onSamples(input) {
+  let sum = 0;
+  for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+  $('level').style.width = Math.min(100, Math.sqrt(sum / input.length) * 400) + '%';
+  const ratio = ctx.sampleRate / IN_RATE;
+  let pos = resPos;
+  while (pos + ratio <= input.length) {
+    const a = Math.floor(pos), b = Math.floor(pos + ratio);
+    let s = 0;
+    for (let i = a; i < b; i++) s += input[i];
+    pending.push(s / Math.max(1, b - a));
+    pos += ratio;
+  }
+  resPos = pos - input.length;
+  if (pending.length >= 1600) flushMic(); // ~100 ms
+}
+
+function flushMic() {
+  if (!ws || !ready || !pending.length) { pending = []; return; }
+  const bytes = new Uint8Array(pending.length * 2);
+  for (let i = 0; i < pending.length; i++) {
+    const v = Math.max(-1, Math.min(1, pending[i]));
+    const x = v < 0 ? v * 32768 : v * 32767;
+    bytes[2 * i] = x & 255; bytes[2 * i + 1] = (x >> 8) & 255;
+  }
+  pending = [];
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+  ws.send(JSON.stringify({ realtimeInput: { audio: { data: btoa(s), mimeType: 'audio/pcm;rate=16000' } } }));
+}
+
+// ---------- Boşlaş ----------
+$('loginBtn').onclick = login;
+$('pass').onkeydown = (e) => { if (e.key === 'Enter') login(); };
+$('connectBtn').onclick = connect;
+$('mic').onclick = toggleMic;
+$('sendBtn').onclick = sendText;
+$('text').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); sendText(); } };
+if (getToken()) showMain(); else showLogin();
+</script>
+</body>
+</html>
