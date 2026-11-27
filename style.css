@@ -212,3 +212,108 @@ label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 12p
 
 /* ---------- Eslatma jadvali (forma) ---------- */
 .remind { margin: 2px 2px 12px; font-size: 13px; color: var(--muted); }
+
+/* ---------- Kalendar (Notion Calendar kabi) ---------- */
+.screen.wide { max-width: 1480px; padding-bottom: calc(12px + var(--safe-bottom)); }
+.cal { display: flex; gap: 20px; --gutter: 52px; }
+.cal-main { flex: 1; min-width: 0; }
+.cal-side { display: none; width: 232px; flex: none; padding-top: 4px; }
+@media (min-width: 1000px) { .cal-side { display: block; } }
+
+.cal-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.cal-toolbar h2 { flex: 1; min-width: 160px; font-size: 22px; }
+.cal-toolbar h2 em { font-style: normal; color: var(--muted); font-weight: 600; }
+.cal.loading .cal-toolbar h2 { animation: pulse 1.2s infinite; }
+.seg { display: flex; padding: 3px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
+.seg button { border: 0; background: none; padding: 6px 11px; border-radius: 9px; color: var(--muted); font-weight: 600; font-size: 13px; }
+.seg button.active { background: var(--deep-azure); color: var(--text); }
+.pill { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 7px 13px; font-weight: 600; font-size: 13px; }
+.icon-btn.sm { width: 34px; height: 34px; border-radius: 10px; }
+.icon-btn.sm svg { width: 18px; height: 18px; }
+
+.cal-scroll {
+  position: relative; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+  border: 1px solid var(--line); border-radius: var(--radius); background: rgba(10, 79, 166, .06);
+}
+.cal-head, .cal-body { display: grid; grid-template-columns: var(--gutter) repeat(var(--n, 7), minmax(0, 1fr)); }
+.cal-head { position: sticky; top: 0; z-index: 6; background: #0d1226; border-bottom: 1px solid var(--line); }
+.cal-corner { font-size: 10px; color: var(--muted); display: grid; place-items: end center; padding-bottom: 10px; }
+.cal-dh {
+  border: 0; background: none; padding: 7px 2px 5px; display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: center; column-gap: 6px; color: var(--text-muted);
+}
+.cal-dh span { font-size: 12px; color: var(--muted); font-weight: 600; }
+.cal-dh b { font-size: 17px; font-weight: 600; min-width: 28px; height: 28px; line-height: 28px; border-radius: 9px; padding: 0 4px; }
+.cal-dh small { width: 100%; font-size: 10.5px; color: var(--muted); line-height: 1.3; }
+.cal-dh.today span { color: var(--coral-rose); }
+.cal-dh.today b { background: var(--coral-rose); color: var(--midnight-black); }
+
+.cal-gutter, .cal-col { position: relative; height: calc(24 * var(--hour, 48px)); }
+.cal-gutter span {
+  position: absolute; right: 8px; transform: translateY(-50%);
+  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.cal-gutter span.near { visibility: hidden; }
+.now-label {
+  position: absolute; right: 3px; transform: translateY(-50%); z-index: 3; font-style: normal;
+  font-size: 10.5px; font-weight: 700; background: var(--coral-rose); color: var(--midnight-black);
+  padding: 1px 5px; border-radius: 6px; font-variant-numeric: tabular-nums;
+}
+.cal-col {
+  border-left: 1px solid rgba(10, 79, 166, .3); cursor: cell;
+  background-image:
+    linear-gradient(to bottom, rgba(10, 79, 166, .3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(10, 79, 166, .1) 1px, transparent 1px);
+  background-size: 100% var(--hour, 48px), 100% calc(var(--hour, 48px) / 2);
+}
+.cal-col.today { background-color: rgba(242, 114, 127, .045); }
+.now-line { position: absolute; left: -1px; right: 0; height: 2px; background: var(--coral-rose); z-index: 4; pointer-events: none; }
+.now-line::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--coral-rose); }
+
+/* Bloklar va vazifalar (ustma-ust tuşganda ham aniq körinişi uçun ranglar tiniq) */
+.ev {
+  position: absolute; z-index: 1; border: 0; margin: 0; text-align: left; padding: 3px 6px; border-radius: 7px;
+  overflow: hidden; display: flex; flex-direction: column; gap: 1px; font-size: 12px; line-height: 1.25; color: var(--text);
+}
+.ev b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev span { font-size: 11px; color: rgba(232, 234, 240, .7); font-weight: 400; }
+.ev:hover { filter: brightness(1.18); }
+.ev.block { background: #0b2449; border-left: 3px solid #1f5fb8; color: var(--text-muted); }
+.ev.block.hard { background: #0a3166; border-left-color: #4d94f2; color: var(--text); }
+.ev.task { z-index: 2; background: #45263a; border-left: 3px solid var(--coral-rose); box-shadow: 0 0 0 1px var(--midnight-black); }
+.ev.task.late { background: #5c2535; outline: 1px dashed var(--coral-rose); outline-offset: -1px; }
+.ev.task.done, .ev.task.cancel { opacity: .5; }
+.ev.task.done b, .ev.task.cancel b { text-decoration: line-through; }
+
+/* Kiçik oylik kalendar */
+.mini-head { display: flex; justify-content: space-between; align-items: center; margin: 4px 4px 8px; }
+.mini-head button { border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 7px; }
+.mini { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.mini .mh { font-size: 11px; color: var(--muted); padding: 4px 0; }
+.mini button { border: 0; background: none; height: 30px; border-radius: 8px; font-size: 13px; color: var(--text-muted); padding: 0; }
+.mini button:hover { background: var(--card); }
+.mini button.out { color: rgba(232, 234, 240, .3); }
+.mini button.in { background: var(--card-strong); }
+.mini button.today { background: var(--coral-rose); color: var(--midnight-black); font-weight: 700; }
+.legend { margin-top: 20px; display: grid; gap: 9px; font-size: 13px; color: var(--text-muted); padding: 0 4px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 8px; vertical-align: -1px; }
+.lg-block { background: #0a3166; border-left: 3px solid #4d94f2; }
+.lg-task { background: #45263a; border-left: 3px solid var(--coral-rose); }
+.cal-hint { margin: 18px 4px 0; font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+/* Tafsilotlar oynasi */
+.ev-meta { margin: 0 0 14px; white-space: pre-line; color: var(--text-muted); font-size: 14px; }
+.ev-actions { display: grid; gap: 8px; }
+.ev-actions .btn-ghost { margin-top: 0; }
+.btn-ghost.del { color: var(--coral-rose); }
+
+/* Telefon */
+@media (max-width: 600px) {
+  .cal { --gutter: 42px; }
+  .cal-toolbar h2 { font-size: 19px; flex-basis: 100%; }
+  .cal-toolbar .seg { flex: 1; }
+  .cal-toolbar .seg button { flex: 1; }
+  .ev { padding: 2px 4px; font-size: 11px; }
+  .ev span { font-size: 10px; }
+  .cal-gutter span { right: 5px; font-size: 10px; }
+}

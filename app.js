@@ -162,6 +162,14 @@ function renderSummary(day) {
 async function loadPlanner() {
   const list = $('list');
   openMenu = null;
+  // Kalendar körinişi alohida çiziladi
+  const isCal = view === 'calendar';
+  $('screen-planner').classList.toggle('wide', isCal);
+  list.classList.toggle('hidden', isCal);
+  $('cal').classList.toggle('hidden', !isCal);
+  if (isCal) { loadCalendar(); return; }
+  clearInterval(calNowTimer);
+
   const from = view === 'tomorrow' ? ymd(today(1)) : ymd(today(0));
   const count = view === 'week' ? 7 : 1;
   const cached = count === 1 ? readCache(from) : null;
@@ -264,6 +272,351 @@ async function act(action, it, row) {
     toast('⚠️ ' + e.message);
   }
   loadPlanner();
+}
+
+// ---------- Kalendar (Notion Calendar kabi) ----------
+
+const WD_SHORT = ['Ya', 'Du', 'Se', 'Ço', 'Pa', 'Ju', 'Şa'];
+const MONTHS_CAP = MONTHS.map((m) => m[0].toUpperCase() + m.slice(1));
+const HOUR_H = 48;       // bir soatning balandligi (px)
+const MIN_EVENT_H = 18;  // juda qisqa vazifa ham körinib tursin
+
+let calStart = null;     // körinayotgan birinçi kun (00:00)
+let calCount = 7;        // 1 | 3 | 7 kun
+let calMini = null;      // kiçik oylik kalendarning oyi
+let calNowTimer = null;  // «hozir» çizigini yangilaydigan taymer
+let calScrolled = false; // birinçi oçilişda hozirgi vaqtga aylantirildimi
+let calReq = 0;          // eski javob yangisining ustiga çizilmasin
+
+function prefGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }
+function prefSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* xotira yöq */ } }
+
+function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+function dayStart(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function mondayOf(d) { const x = dayStart(d); return addDays(x, -((x.getDay() + 6) % 7)); }
+function parseYmd(s) { const p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+function toMin(hm) { if (!hm) return 0; const p = hm.split(':').map(Number); return p[0] * 60 + (p[1] || 0); }
+function hmOf(min) { return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+
+/** Berilgan kunni öz içiga oladigan birinçi kun: hafta — duşanbadan, qolgani — şu kunning özi */
+function calAnchor(d, n) { return n === 7 ? mondayOf(d) : dayStart(d); }
+
+/** Kalendar tugmalarini ulaydi (bir marta, init'da) */
+function initCalendar() {
+  const saved = Number(prefGet('sy_cal_n', 0));
+  calCount = [1, 3, 7].indexOf(saved) >= 0 ? saved : (window.innerWidth < 700 ? 3 : 7);
+  calStart = calAnchor(new Date(), calCount);
+
+  $('calPrev').onclick = () => calShift(-1);
+  $('calNext').onclick = () => calShift(1);
+  $('calToday').onclick = calGoToday;
+  document.querySelectorAll('#calRange button').forEach((b) => {
+    b.onclick = () => calSetCount(Number(b.dataset.n), true);
+  });
+  $('miniPrev').onclick = () => { calMini = new Date(calMini.getFullYear(), calMini.getMonth() - 1, 1); renderMini(); };
+  $('miniNext').onclick = () => { calMini = new Date(calMini.getFullYear(), calMini.getMonth() + 1, 1); renderMini(); };
+  $('mini').onclick = (e) => {
+    const k = e.target.dataset && e.target.dataset.date;
+    if (!k) return;
+    calStart = calAnchor(parseYmd(k), calCount);
+    calMini = null;
+    loadCalendar();
+  };
+  // Kun sarlavhasi bosilsa — şu kunning özi
+  $('calHead').onclick = (e) => {
+    const b = e.target.closest('.cal-dh');
+    if (!b) return;
+    calCount = 1;
+    calStart = parseYmd(b.dataset.date);
+    calMini = null;
+    loadCalendar();
+  };
+
+  // Telefonda çapga/öngga surib, kunlarni almaştiriş
+  const sc = $('calScroll');
+  let sx = 0, sy = 0;
+  sc.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  sc.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) > 70 && Math.abs(dy) < 50) calShift(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  window.addEventListener('resize', sizeCalendar);
+}
+
+function calShift(dir) {
+  calStart = addDays(calStart, dir * calCount);
+  calMini = null;
+  haptic('light');
+  loadCalendar();
+}
+
+function calGoToday() {
+  calStart = calAnchor(new Date(), calCount);
+  calMini = null;
+  calScrolled = false;
+  loadCalendar();
+}
+
+/** Nechta kun körinişini almaştiradi; bugun körinib turgan bölsa, bugundan qoladi */
+function calSetCount(n, save) {
+  const todayD = dayStart(new Date());
+  const inView = todayD >= calStart && todayD < addDays(calStart, calCount);
+  calCount = n;
+  if (save) prefSet('sy_cal_n', n);
+  calStart = calAnchor(inView ? todayD : calStart, n);
+  calMini = null;
+  loadCalendar();
+}
+
+/** Ma'lumotni oladi: avval keşdan darhol, keyin serverdan yangisini */
+async function loadCalendar() {
+  const req = ++calReq;
+  const days = [];
+  let allCached = true;
+  for (let i = 0; i < calCount; i++) {
+    const key = ymd(addDays(calStart, i));
+    const c = readCache(key);
+    if (!c) allCached = false;
+    days.push(c || { date: key, items: [] });
+  }
+  renderCalendar(days);
+  $('cal').classList.add('loading');
+  try {
+    const data = await api('days', { from: ymd(calStart), count: calCount });
+    if (req !== calReq) return;
+    if (!data.ok) throw new Error(data.error || 'Xatolik');
+    writeCache(data.days);
+    renderCalendar(data.days);
+  } catch (e) {
+    if (req !== calReq) return;
+    toast(allCached ? '⚠️ Internet yöq — oxirgi saqlangan reja' : '⚠️ ' + e.message);
+  } finally {
+    if (req === calReq) $('cal').classList.remove('loading');
+  }
+}
+
+function calTitleHtml(a, b) {
+  if (calCount === 1) return esc(WEEKDAYS[a.getDay()]) + ', <em>' + a.getDate() + '-' + MONTHS[a.getMonth()] + '</em>';
+  if (a.getMonth() === b.getMonth()) return MONTHS_CAP[a.getMonth()] + ' <em>' + a.getFullYear() + '</em>';
+  return MONTHS_CAP[a.getMonth()] + ' – ' + MONTHS_CAP[b.getMonth()] + ' <em>' + b.getFullYear() + '</em>';
+}
+
+/** Butun kalendarni çizadi: sarlavha, soatlar, kun ustunlari */
+function renderCalendar(days) {
+  const root = $('cal');
+  const todayKey = ymd(today(0));
+  const nowMin = toMin(nowHM());
+  root.style.setProperty('--n', days.length);
+  root.style.setProperty('--hour', HOUR_H + 'px');
+
+  $('calTitle').innerHTML = calTitleHtml(calStart, addDays(calStart, calCount - 1));
+  document.querySelectorAll('#calRange button').forEach((b) => b.classList.toggle('active', Number(b.dataset.n) === calCount));
+
+  // Kunlar sarlavhasi: «Ju 27» va bajarilganlar soni
+  let head = '<div class="cal-corner">GMT+5</div>';
+  days.forEach((d) => {
+    const dt = parseYmd(d.date);
+    const tasks = d.items.filter((x) => x.kind === 'task' && x.status !== 'Bekor');
+    const done = tasks.filter((x) => x.status === 'Bajarildi').length;
+    head += '<button type="button" class="cal-dh' + (d.date === todayKey ? ' today' : '') + '" data-date="' + d.date + '">' +
+      '<span>' + WD_SHORT[dt.getDay()] + '</span><b>' + dt.getDate() + '</b>' +
+      '<small>' + (tasks.length ? done + '/' + tasks.length : '&nbsp;') + '</small></button>';
+  });
+  $('calHead').innerHTML = head;
+
+  // Soatlar ustuni va kunlar
+  const body = $('calBody');
+  body.innerHTML = '';
+  const gutter = document.createElement('div');
+  gutter.className = 'cal-gutter';
+  const hasToday = days.some((d) => d.date === todayKey);
+  let g = '';
+  for (let h = 1; h < 24; h++) g += '<span data-m="' + h * 60 + '" style="top:' + h * HOUR_H + 'px">' + String(h).padStart(2, '0') + ':00</span>';
+  gutter.innerHTML = g;
+  body.appendChild(gutter);
+  if (hasToday) gutter.insertAdjacentHTML('beforeend', '<em class="now-label" style="top:' + nowMin * HOUR_H / 60 + 'px">' + nowHM() + '</em>');
+  days.forEach((d) => body.appendChild(renderCalDay(d, todayKey, nowMin)));
+  markNearHours(hasToday ? nowMin : -99);
+
+  renderMini();
+  sizeCalendar();
+  if (!calScrolled) {
+    const target = hasToday ? Math.max(0, nowMin - 120) : 7 * 60;
+    $('calScroll').scrollTop = target * HOUR_H / 60;
+    calScrolled = true;
+  }
+  clearInterval(calNowTimer);
+  calNowTimer = setInterval(updateNowLine, 60000);
+}
+
+/** Bitta kun ustuni: avval bloklar (fon), ustidan vazifalar */
+function renderCalDay(d, todayKey, nowMin) {
+  const col = document.createElement('div');
+  const isToday = d.date === todayKey;
+  const isPast = d.date < todayKey;
+  col.className = 'cal-col' + (isToday ? ' today' : '');
+  const blocks = layoutEvents(d.items.filter((x) => x.kind === 'block'));
+  const tasks = layoutEvents(d.items.filter((x) => x.kind === 'task'));
+  blocks.forEach((ev) => col.appendChild(eventEl(ev, d, isToday, isPast, nowMin, false)));
+  tasks.forEach((ev) => {
+    const overBlock = blocks.some((b) => b.s < ev.e && ev.s < b.e);
+    col.appendChild(eventEl(ev, d, isToday, isPast, nowMin, overBlock));
+  });
+  if (isToday) col.insertAdjacentHTML('beforeend', '<i class="now-line" style="top:' + nowMin * HOUR_H / 60 + 'px"></i>');
+
+  // Böş joy bosilsa — şu vaqtga yangi vazifa (15 daqiqaga yaxlitlab)
+  col.onclick = (e) => {
+    if (e.target !== col) return;
+    const y = e.clientY - col.getBoundingClientRect().top;
+    const min = Math.min(Math.floor(y / HOUR_H * 4) * 15, 23 * 60 + 45);
+    newTaskAt(d.date, hmOf(min));
+  };
+  return col;
+}
+
+/** Bir vaqtga tuşgan işlarni yonma-yon ustunlarga bölib joylaydi */
+function layoutEvents(items) {
+  const evs = items.map((it) => {
+    const s = toMin(it.start);
+    let e = toMin(it.end);
+    if (e <= s) e = (it.end === '00:00' && s > 0) ? 1440 : s + 15; // yarim tungaça yoki uzunligi yöq
+    return { it, s, e: Math.max(e, s + 15) };
+  }).sort((a, b) => a.s - b.s || b.e - a.e);
+
+  let group = [];
+  let colEnds = [];
+  let groupEnd = -1;
+  const flush = () => { group.forEach((ev) => { ev.cols = colEnds.length; }); group = []; colEnds = []; };
+  evs.forEach((ev) => {
+    if (ev.s >= groupEnd) { flush(); groupEnd = -1; }
+    let c = colEnds.findIndex((end) => end <= ev.s);
+    if (c < 0) { c = colEnds.length; colEnds.push(ev.e); } else colEnds[c] = ev.e;
+    ev.col = c;
+    group.push(ev);
+    groupEnd = Math.max(groupEnd, ev.e);
+  });
+  flush();
+  return evs;
+}
+
+/** Kalendardagi bitta blok yoki vazifa */
+function eventEl(ev, d, isToday, isPast, nowMin, overBlock) {
+  const it = ev.it;
+  const isTask = it.kind === 'task';
+  const done = it.status === 'Bajarildi';
+  const cancel = it.status === 'Bekor';
+  const late = isTask && !done && !cancel && (it.status === 'Keçikdi' || isPast || (isToday && ev.e < nowMin));
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'ev ' + it.kind + (!isTask && !it.soft ? ' hard' : '') + (done ? ' done' : '') + (cancel ? ' cancel' : '') + (late ? ' late' : '');
+
+  const top = ev.s * HOUR_H / 60;
+  const h = Math.max((ev.e - ev.s) * HOUR_H / 60 - 2, MIN_EVENT_H);
+  const indent = overBlock ? 12 : 0; // vazifa blok ustida bölsa, blokning çeti körinib tursin
+  const w = (100 - indent) / ev.cols;
+  el.style.top = top + 'px';
+  el.style.height = h + 'px';
+  el.style.left = 'calc(' + (indent + ev.col * w) + '% + 2px)';
+  el.style.width = 'calc(' + w + '% - 4px)';
+
+  const icon = done ? '✅ ' : cancel ? '✖️ ' : it.rec ? '🔁 ' : '';
+  const time = it.start + '–' + it.end;
+  el.innerHTML = h >= 34
+    ? '<b>' + icon + esc(it.title) + '</b><span>' + time + '</span>'
+    : '<b>' + icon + esc(it.title) + ' <span>' + it.start + '</span></b>';
+  el.title = it.title + ' · ' + time;
+  el.onclick = (e) => { e.stopPropagation(); openEvent(it, d, late); };
+  return el;
+}
+
+/** Bosilgan vazifa yoki blok tafsilotlari va amallari */
+function openEvent(it, d, late) {
+  const dt = parseYmd(d.date);
+  $('evTitle').textContent = (it.rec ? '🔁 ' : '') + it.title;
+  const lines = ['🗓 ' + WEEKDAYS[dt.getDay()] + ', ' + dt.getDate() + '-' + MONTHS[dt.getMonth()] + ' · ' + it.start + '–' + it.end];
+  if (it.kind === 'block') {
+    lines.push(it.soft ? 'Kun tartibi · yumşoq blok: bu vaqtda boşqa iş ham qilsa böladi' : 'Kun tartibi · qattiq blok');
+  } else {
+    const st = it.status === 'Rejada' && late ? 'Keçikdi' : it.status;
+    lines.push('Holat: ' + st + (it.rec ? ' · takroriy' : ''));
+  }
+  $('evMeta').textContent = lines.join('\n');
+
+  const box = $('evActions');
+  box.innerHTML = '';
+  const add = (text, cls, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls;
+    b.textContent = text;
+    b.onclick = fn;
+    box.appendChild(b);
+  };
+  if (it.kind === 'task' && it.status !== 'Bajarildi' && it.status !== 'Bekor') {
+    add('✅ Bajarildi', 'btn-accent', () => { closeEvent(); act('done', it); });
+    add('➡️ Ertaga köçiriş', 'btn-ghost', () => { closeEvent(); act('tomorrow', it); });
+    add('Bekor qiliş', 'btn-ghost del', () => {
+      confirmAsk('«' + it.title + '» bekor qilinsinmi?', () => { closeEvent(); act('delete', it); });
+    });
+  } else if (it.kind === 'block') {
+    add('➕ Şu vaqtga vazifa qöşiş', 'btn-ghost', () => { closeEvent(); newTaskAt(d.date, it.start); });
+  }
+  $('evSheet').classList.remove('hidden');
+}
+
+function closeEvent() { $('evSheet').classList.add('hidden'); }
+
+/** Kalendardan: aniq kun va vaqtga yangi vazifa formasi */
+function newTaskAt(date, start) {
+  openSheet(false);
+  fillForm({ date, start, duration: 30 }, null, '');
+  setTimeout(() => $('fTitle').focus(), 60);
+}
+
+/** Kiçik oylik kalendar (kompyuterda çap tomonda) */
+function renderMini() {
+  if (!calMini) calMini = new Date(calStart.getFullYear(), calStart.getMonth(), 1);
+  const m = calMini;
+  $('miniTitle').textContent = MONTHS_CAP[m.getMonth()] + ' ' + m.getFullYear();
+  const first = mondayOf(m);
+  const todayKey = ymd(today(0));
+  const a = ymd(calStart);
+  const b = ymd(addDays(calStart, calCount - 1));
+  let html = ['Du', 'Se', 'Ço', 'Pa', 'Ju', 'Şa', 'Ya'].map((w) => '<span class="mh">' + w + '</span>').join('');
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(first, i);
+    const k = ymd(d);
+    const cls = [d.getMonth() !== m.getMonth() ? 'out' : '', k >= a && k <= b ? 'in' : '', k === todayKey ? 'today' : ''].join(' ').trim();
+    html += '<button type="button" data-date="' + k + '" class="' + cls + '">' + d.getDate() + '</button>';
+  }
+  $('mini').innerHTML = html;
+}
+
+/** Kalendar balandligi ekranning qolgan qismini egallaydi */
+function sizeCalendar() {
+  const sc = $('calScroll');
+  if ($('cal').classList.contains('hidden')) return;
+  const top = sc.getBoundingClientRect().top + window.scrollY;
+  sc.style.height = Math.max(320, window.innerHeight - top - 14) + 'px';
+}
+
+/** Hozirgi vaqt yorlig'i soat yozuvi ustiga tuşmasin: yaqin soat yozuvini yaşiradi */
+function markNearHours(nowMin) {
+  document.querySelectorAll('.cal-gutter span').forEach((x) => {
+    x.classList.toggle('near', Math.abs(Number(x.dataset.m) - nowMin) < 15);
+  });
+}
+
+/** «Hozir» çizigini har daqiqa suradi */
+function updateNowLine() {
+  if (view !== 'calendar' || $('screen-planner').classList.contains('hidden')) { clearInterval(calNowTimer); return; }
+  const top = toMin(nowHM()) * HOUR_H / 60 + 'px';
+  if (document.querySelector('.now-label')) markNearHours(toMin(nowHM()));
+  document.querySelectorAll('.now-line').forEach((x) => { x.style.top = top; });
+  const l = document.querySelector('.now-label');
+  if (l) { l.style.top = top; l.textContent = nowHM(); }
 }
 
 // ---------- Yangi vazifa ----------
@@ -684,6 +1037,13 @@ function init() {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
+  // Oxirgi tanlangan körinişni eslab qolamiz; kompyuterda birinçi marta — kalendar
+  const savedView = prefGet('sy_view', '');
+  view = ['day', 'tomorrow', 'week', 'calendar'].indexOf(savedView) >= 0 ? savedView : (window.innerWidth >= 900 ? 'calendar' : 'day');
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
+  initCalendar();
+  if (IN_TELEGRAM && tg.isVersionAtLeast('7.7') && tg.disableVerticalSwipes) tg.disableVerticalSwipes(); // kalendarni aylantirganda Mini App yopilib ketmasin
+
   renderModules();
   $('loginForm').onsubmit = login;
   $('logoutBtn').onclick = logout;
@@ -694,6 +1054,7 @@ function init() {
     b.onclick = () => {
       document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === b));
       view = b.dataset.view;
+      prefSet('sy_view', view);
       loadPlanner();
     };
   });
@@ -713,6 +1074,20 @@ function init() {
   $('micFab').onclick = () => { openSheet(false); startRecord(); };
   $('closeSheet').onclick = closeSheet;
   $('sheet').onclick = (e) => { if (e.target.id === 'sheet') closeSheet(); };
+  $('evClose').onclick = closeEvent;
+  $('evSheet').onclick = (e) => { if (e.target.id === 'evSheet') closeEvent(); };
+
+  // Klaviatura (kompyuterda): Esc — yopiş; kalendarda ← → va T
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeEvent(); if (!$('sheet').classList.contains('hidden')) closeSheet(); return; }
+    if (view !== 'calendar' || $('screen-planner').classList.contains('hidden')) return;
+    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    if (!$('sheet').classList.contains('hidden') || !$('evSheet').classList.contains('hidden')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'ArrowLeft') calShift(-1);
+    else if (e.key === 'ArrowRight') calShift(1);
+    else if (e.key === 't' || e.key === 'T') calGoToday();
+  });
   $('parseBtn').onclick = parseText;
   $('manualBtn').onclick = () => fillForm({ date: defaultDate(), duration: 30 }, null, '');
   $('taskText').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); parseText(); } };

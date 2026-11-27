@@ -1,6 +1,6 @@
 // Service worker: ilova qobiğini (HTML, CSS, JS, ikonkalar) saqlaydi, internet yöq bölsa ham oçiladi.
 // Ma'lumot (reja) bu yerda saqlanmaydi — u app.js'dagi localStorage keşida.
-const CACHE = 'solih-shell-v2';
+const CACHE = 'solih-shell-v3';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
