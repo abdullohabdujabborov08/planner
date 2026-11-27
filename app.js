@@ -9,12 +9,11 @@ const TOKEN_KEY = 'sy_token';
 const WEEKDAYS = ['Yakşanba', 'Duşanba', 'Seşanba', 'Çorşanba', 'Payşanba', 'Juma', 'Şanba'];
 const MONTHS = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
 
-const ICONS = {
-  calendar: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
-  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
-  check: '<svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>',
-  more: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>'
-};
+/** Ikonka: index.html'dagi SVG to'plamdan (<symbol id="i-…">) */
+function ico(name, cls) {
+  return '<svg class="i' + (cls ? ' ' + cls : '') + '" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+}
+const ICONS = { calendar: ico('calendar'), plus: ico('plus'), check: ico('check'), more: ico('more') };
 
 // Agentlar (modullar) röyxati — yangi agent qöşiş uçun şu yerga bitta qator qöşiladi
 const MODULES = [
@@ -87,7 +86,7 @@ async function login(e) {
   const b = $('loginBtn');
   const err = $('loginErr');
   err.classList.add('hidden');
-  b.disabled = true; b.textContent = 'Tekşirilmoqda…';
+  setBusy(b, true, 'Tekşirilmoqda…');
   try {
     const device = /iPhone|iPad/.test(navigator.userAgent) ? 'iPhone' : /Android/.test(navigator.userAgent) ? 'Android' : 'Kompyuter';
     const r = await api('login', { password: $('password').value, device });
@@ -99,7 +98,7 @@ async function login(e) {
     err.textContent = ex.message;
     err.classList.remove('hidden');
   } finally {
-    b.disabled = false; b.textContent = 'Kiriş';
+    setBusy(b, false);
   }
 }
 
@@ -119,7 +118,7 @@ function renderModules() {
   MODULES.forEach((m) => {
     const b = document.createElement('button');
     b.className = 'module';
-    b.innerHTML = '<div class="ico">' + m.icon + '</div><b>' + esc(m.title) + '</b><span>' + esc(m.desc) + '</span>';
+    b.innerHTML = '<div class="ico">' + m.icon + '</div><b>' + esc(m.title) + ico('next') + '</b><span>' + esc(m.desc) + '</span>';
     b.onclick = () => go(m.id);
     box.appendChild(b);
   });
@@ -182,7 +181,7 @@ async function loadPlanner() {
     render(data.days);
   } catch (e) {
     if (!cached) {
-      list.innerHTML = '<div class="error">⚠️ ' + esc(e.message) + '<button class="btn-ghost" id="retryBtn">Qayta urinib köriş</button></div>';
+      list.innerHTML = '<div class="error">⚠️ ' + esc(e.message) + '<button class="btn-ghost" id="retryBtn">' + ico('refresh') + '<span>Qayta urinib köriş</span></button></div>';
       $('retryBtn').onclick = loadPlanner;
     } else {
       toast('⚠️ Internet yöq — oxirgi saqlangan reja');
@@ -206,7 +205,7 @@ function render(days) {
       '<span>' + (tasks.length ? done + '/' + tasks.length + ' bajarildi' : '') + '</span></div>';
 
     if (!items.length) {
-      box.insertAdjacentHTML('beforeend', '<div class="empty">' + (view === 'week' ? 'Vazifa yöq' : 'Reja böş') + '</div>');
+      box.insertAdjacentHTML('beforeend', '<div class="empty">' + ico('moon') + (view === 'week' ? 'Vazifa yöq' : 'Reja böş — qöşiş uçun pastdagi + tugmasi') + '</div>');
     }
     items.forEach((it) => box.appendChild(renderItem(it, day.date === todayKey)));
     list.appendChild(box);
@@ -220,7 +219,7 @@ function renderItem(it, isToday) {
   const late = it.kind === 'task' && !isDone && (it.status === 'Keçikdi' || (isToday && it.end < nowHM()));
   row.className = 'item ' + it.kind + (it.kind === 'block' && !it.soft ? ' hard' : '') + (isDone ? ' done' : '') + (late ? ' late' : '');
   row.innerHTML = (it.kind === 'block' ? '<span class="dot"><i></i></span>' : '') +
-    '<span class="time">' + it.start + '–' + it.end + '</span><span class="title">' + (it.rec ? '🔁 ' : '') + esc(it.title) + '</span>';
+    '<span class="time">' + it.start + '–' + it.end + '</span><span class="title">' + (it.rec ? ico('repeat', 'xs') : '') + esc(it.title) + '</span>';
   wrap.appendChild(row);
   if (it.kind !== 'task') return wrap;
 
@@ -250,9 +249,10 @@ function toggleMenu(it, wrap) {
   openMenu = it.id;
   const m = document.createElement('div');
   m.className = 'menu';
-  m.innerHTML = '<button data-a="tomorrow">Ertaga köçiriş</button><button data-a="delete" class="del">Bekor qiliş</button>';
+  m.innerHTML = '<button data-a="tomorrow">' + ico('arrow') + 'Ertaga köçiriş</button><button data-a="delete" class="del">' + ico('ban') + 'Bekor qiliş</button>';
   m.onclick = (e) => {
-    const a = e.target.dataset.a;
+    const t = e.target.closest('button');
+    const a = t && t.dataset.a;
     if (a === 'delete') confirmAsk('«' + it.title + '» bekor qilinsinmi?', () => act('delete', it));
     else if (a) act(a, it);
   };
@@ -266,7 +266,7 @@ async function act(action, it, row) {
   try {
     const r = await api(action, { id: it.id });
     if (!r.ok) throw new Error(r.error);
-    toast(action === 'done' ? '✅ Bajarildi' : action === 'tomorrow' ? '➡️ Ertaga köçirildi' : 'Bekor qilindi');
+    toast(action === 'done' ? '✅ Bajarildi' : action === 'tomorrow' ? '➡️ Ertaga köçirildi' : '↩️ Bekor qilindi');
     haptic('success');
   } catch (e) {
     toast('⚠️ ' + e.message);
@@ -521,7 +521,7 @@ function eventEl(ev, d, isToday, isPast, nowMin, overBlock) {
   el.style.left = 'calc(' + (indent + ev.col * w) + '% + 2px)';
   el.style.width = 'calc(' + w + '% - 4px)';
 
-  const icon = done ? '✅ ' : cancel ? '✖️ ' : it.rec ? '🔁 ' : '';
+  const icon = done ? ico('check', 'xs') : cancel ? ico('ban', 'xs') : it.rec ? ico('repeat', 'xs') : '';
   const time = it.start + '–' + it.end;
   el.innerHTML = h >= 34
     ? '<b>' + icon + esc(it.title) + '</b><span>' + time + '</span>'
@@ -534,34 +534,38 @@ function eventEl(ev, d, isToday, isPast, nowMin, overBlock) {
 /** Bosilgan vazifa yoki blok tafsilotlari va amallari */
 function openEvent(it, d, late) {
   const dt = parseYmd(d.date);
-  $('evTitle').textContent = (it.rec ? '🔁 ' : '') + it.title;
-  const lines = ['🗓 ' + WEEKDAYS[dt.getDay()] + ', ' + dt.getDate() + '-' + MONTHS[dt.getMonth()] + ' · ' + it.start + '–' + it.end];
+  $('evTitle').innerHTML = ico(it.kind === 'block' ? 'calendar' : it.rec ? 'repeat' : 'check-circle') + '<span>' + esc(it.title) + '</span>';
+  const rows = [
+    ['calendar', WEEKDAYS[dt.getDay()] + ', ' + dt.getDate() + '-' + MONTHS[dt.getMonth()]],
+    ['clock', it.start + '–' + it.end + ' · ' + durText(toMin(it.end) - toMin(it.start))]
+  ];
   if (it.kind === 'block') {
-    lines.push(it.soft ? 'Kun tartibi · yumşoq blok: bu vaqtda boşqa iş ham qilsa böladi' : 'Kun tartibi · qattiq blok');
+    rows.push(['info', it.soft ? 'Kun tartibi · yumşoq blok: bu vaqtda boşqa iş ham qilsa böladi' : 'Kun tartibi · qattiq blok (zal, dars)']);
   } else {
     const st = it.status === 'Rejada' && late ? 'Keçikdi' : it.status;
-    lines.push('Holat: ' + st + (it.rec ? ' · takroriy' : ''));
+    rows.push([st === 'Keçikdi' ? 'alert' : st === 'Bajarildi' ? 'check-circle' : st === 'Bekor' ? 'ban' : 'flag', 'Holat: ' + st]);
+    if (it.rec) rows.push(['repeat', 'Takroriy vazifa']);
   }
-  $('evMeta').textContent = lines.join('\n');
+  $('evMeta').innerHTML = rows.map((r) => '<p>' + ico(r[0]) + '<span>' + esc(r[1]) + '</span></p>').join('');
 
   const box = $('evActions');
   box.innerHTML = '';
-  const add = (text, cls, fn) => {
+  const add = (text, cls, fn, icon) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = cls;
-    b.textContent = text;
+    b.innerHTML = ico(icon) + '<span>' + esc(text) + '</span>';
     b.onclick = fn;
     box.appendChild(b);
   };
   if (it.kind === 'task' && it.status !== 'Bajarildi' && it.status !== 'Bekor') {
-    add('✅ Bajarildi', 'btn-accent', () => { closeEvent(); act('done', it); });
-    add('➡️ Ertaga köçiriş', 'btn-ghost', () => { closeEvent(); act('tomorrow', it); });
+    add('Bajarildi', 'btn-accent', () => { closeEvent(); act('done', it); }, 'check');
+    add('Ertaga köçiriş', 'btn-ghost', () => { closeEvent(); act('tomorrow', it); }, 'arrow');
     add('Bekor qiliş', 'btn-ghost del', () => {
       confirmAsk('«' + it.title + '» bekor qilinsinmi?', () => { closeEvent(); act('delete', it); });
-    });
+    }, 'ban');
   } else if (it.kind === 'block') {
-    add('➕ Şu vaqtga vazifa qöşiş', 'btn-ghost', () => { closeEvent(); newTaskAt(d.date, it.start); });
+    add('Şu vaqtga vazifa qöşiş', 'btn-ghost', () => { closeEvent(); newTaskAt(d.date, it.start); }, 'plus');
   }
   $('evSheet').classList.remove('hidden');
 }
@@ -742,7 +746,7 @@ async function parseText() {
   const text = $('taskText').value.trim();
   if (!text) return;
   const b = $('parseBtn');
-  b.disabled = true; b.textContent = 'Tuşunyapman…';
+  setBusy(b, true, 'Tuşunyapman…');
   try {
     const r = await api('parse', { text });
     if (!r.ok) throw new Error(r.error);
@@ -753,7 +757,7 @@ async function parseText() {
     toast('⚠️ ' + e.message);
     fillForm({ title: text.slice(0, 100), date: defaultDate(), start: '', duration: 30 }, null, '');
   } finally {
-    b.disabled = false; b.textContent = 'Davom etiş';
+    setBusy(b, false);
   }
 }
 
@@ -790,11 +794,11 @@ function showRoutine(r) {
   const same = !!r.routine.same;
   $('routineText').textContent = (r.heard ? '🎙 «' + r.heard + '»\n' : '') + r.routine.text +
     (same ? '\nU allaqaçon jadvalda bor.' : '');
-  $('rOnce').textContent = same ? 'Tuşunarli' : 'Ha, faqat şu kun';
+  $('rOnce').innerHTML = ico('check') + '<span>' + (same ? 'Tuşunarli' : 'Ha, faqat şu kun') + '</span>';
   $('rOnce').dataset.same = same ? '1' : '';
-  $('rWeek').textContent = 'Har ' + r.routine.weekday + ' şunday';
+  $('rWeek').innerHTML = ico('repeat') + '<span>Har ' + esc(r.routine.weekday) + ' şunday</span>';
   $('rWeek').classList.toggle('hidden', same);
-  $('rTask').textContent = same ? 'Baribir vazifa qöş' : 'Yöq, alohida vazifa';
+  $('rTask').innerHTML = ico('plus') + '<span>' + (same ? 'Baribir vazifa qöş' : 'Yöq, alohida vazifa') + '</span>';
   $('rTask').classList.toggle('hidden', !routineDraft);
   $('stepText').classList.add('hidden');
   $('stepForm').classList.add('hidden');
@@ -829,8 +833,8 @@ function updateRemindHint() {
   let list = (REMIND_LEVELS[prio] || REMIND_LEVELS['Örta']).slice();
   if (recur === 'Har kuni') list = list.filter((n) => n < 1440); // har kuni «1 kun oldin» kerak emas
   const span = (n) => n >= 1440 ? Math.round(n / 1440) + ' kun' : n >= 60 ? Math.floor(n / 60) + ' soat' + (n % 60 ? ' ' + (n % 60) + ' daqiqa' : '') : n + ' daqiqa';
-  $('fRemind').textContent = '🔔 Eslatma: ' + (list.length ? list.map(span).join(', ') + ' oldin va ' : '') + 'vaqtida' +
-    (recur !== 'Yöq' ? ' · 🔁 ' + recur.toLowerCase() : '');
+  $('fRemind').innerHTML = ico('bell') + '<span>Eslatma: ' + (list.length ? list.map(span).join(', ') + ' oldin va ' : '') + 'vaqtida' +
+    (recur !== 'Yöq' ? ' · ' + recur.toLowerCase() : '') + '</span>';
 }
 
 function setSelect(id, value) {
@@ -858,7 +862,7 @@ async function saveTask(force) {
     note: $('fNote').value.trim()
   };
   const b = $('saveBtn');
-  b.disabled = true; b.textContent = 'Saqlanmoqda…';
+  setBusy(b, true, 'Saqlanmoqda…');
   try {
     const r = await api('save', { task, force: !!force });
     if (r.confirm) {
@@ -874,8 +878,61 @@ async function saveTask(force) {
   } catch (e) {
     toast('⚠️ ' + e.message);
   } finally {
-    b.disabled = false; b.textContent = 'Saqlaş';
+    setBusy(b, false);
   }
+}
+
+// ---------- Tugmalar: yuklaniş, bosiş javobi ----------
+
+/** Tugmani «işlayapti» holatiga ötkazadi (aylanayotgan belgi + matn), keyin asl körinişini qaytaradi */
+function setBusy(b, on, label) {
+  if (on) {
+    if (b.dataset.html == null) b.dataset.html = b.innerHTML;
+    b.disabled = true;
+    b.classList.add('busy');
+    b.innerHTML = '<span class="spin"></span><span>' + esc(label || '') + '</span>';
+  } else {
+    b.disabled = false;
+    b.classList.remove('busy');
+    if (b.dataset.html != null) { b.innerHTML = b.dataset.html; delete b.dataset.html; }
+  }
+}
+
+/** Rejalaştiruvçi körinişini tanlaydi va eslab qoladi */
+function setView(v) {
+  view = v;
+  prefSet('sy_view', v);
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x.dataset.view === v));
+}
+
+/** Daqiqalar → «1 soat 30 daqiqa» */
+function durText(min) {
+  if (min <= 0) min += 1440;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return (h ? h + ' soat' : '') + (h && m ? ' ' : '') + (m ? m + ' daqiqa' : '');
+}
+
+/** Har bir tugma bosilganda: to'lqin (ripple) va Telegram'da yengil tebraniş */
+function initPress() {
+  document.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('button');
+    if (!b || b.disabled || e.button > 0) return;
+    const r = b.getBoundingClientRect();
+    const size = Math.max(r.width, r.height) * 2.2;
+    const w = document.createElement('span');
+    w.className = 'ripple';
+    w.style.width = w.style.height = size + 'px';
+    w.style.left = (e.clientX - r.left - size / 2) + 'px';
+    w.style.top = (e.clientY - r.top - size / 2) + 'px';
+    b.appendChild(w);
+    setTimeout(() => w.remove(), 600);
+  }, { passive: true });
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || b.disabled) return;
+    if (IN_TELEGRAM && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+  }, true);
 }
 
 // ---------- Oflayn keş: oxirgi körilgan kunlar ----------
@@ -906,10 +963,22 @@ function esc(s) {
 }
 
 let toastTimer;
+// Xabar boşidagi emoji örniga palitradagi ikonka
+const TOAST_ICONS = [['⚠️', 'alert'], ['✅', 'check-circle'], ['➡️', 'arrow'], ['🔔', 'bell'], ['📨', 'send'], ['🎙', 'mic'], ['↩️', 'refresh'], ['🔁', 'repeat']];
+
 function toast(text) {
   const t = $('toast');
-  t.textContent = text;
+  let icon = 'info';
+  let body = String(text);
+  TOAST_ICONS.some(([e, n]) => {
+    if (body.indexOf(e) !== 0) return false;
+    icon = n;
+    body = body.slice(e.length).trim();
+    return true;
+  });
+  t.innerHTML = ico(icon) + '<span>' + esc(body) + '</span>';
   t.classList.remove('hidden');
+  t.style.animation = 'none'; void t.offsetWidth; t.style.animation = '';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.add('hidden'), 2800);
 }
@@ -982,8 +1051,7 @@ async function refreshPushBox() {
 /** Ruxsat söraydi, obuna böladi va obunani serverga saqlaydi */
 async function enablePush() {
   const btn = $('pushBtn');
-  btn.disabled = true;
-  btn.textContent = 'Yoqilmoqda…';
+  setBusy(btn, true, 'Yoqilmoqda…');
   try {
     const perm = await Notification.requestPermission(); // iPhone faqat tugma bosilganda söraydi
     if (perm !== 'granted') throw new Error('Ruxsat berilmadi');
@@ -1000,8 +1068,7 @@ async function enablePush() {
   } catch (e) {
     toast('⚠️ ' + e.message);
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Bildirişlarni yoqiş';
+    setBusy(btn, false);
     refreshPushBox().catch(() => {});
   }
 }
@@ -1023,8 +1090,8 @@ function init() {
     tg.ready();
     tg.expand();
     if (tg.isVersionAtLeast('6.1')) {
-      tg.setHeaderColor('#0B0D17');
-      tg.setBackgroundColor('#0B0D17');
+      tg.setHeaderColor('#001D39');
+      tg.setBackgroundColor('#001D39');
     }
     tg.BackButton.onClick(() => history.back());
   } else {
@@ -1045,6 +1112,10 @@ function init() {
   if (IN_TELEGRAM && tg.isVersionAtLeast('7.7') && tg.disableVerticalSwipes) tg.disableVerticalSwipes(); // kalendarni aylantirganda Mini App yopilib ketmasin
 
   renderModules();
+  initPress();
+  $('qAdd').onclick = () => { go('planner'); openSheet(); };
+  $('qMic').onclick = () => { go('planner'); openSheet(false); startRecord(); };
+  $('qCal').onclick = () => { setView('calendar'); go('planner'); };
   $('loginForm').onsubmit = login;
   $('logoutBtn').onclick = logout;
   $('summary').onclick = () => go('planner');
@@ -1052,9 +1123,8 @@ function init() {
   $('refreshBtn').onclick = loadPlanner;
   document.querySelectorAll('.tab').forEach((b) => {
     b.onclick = () => {
-      document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === b));
-      view = b.dataset.view;
-      prefSet('sy_view', view);
+      if (view === b.dataset.view) return;
+      setView(b.dataset.view);
       loadPlanner();
     };
   });

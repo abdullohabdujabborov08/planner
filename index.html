@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <title>Solih</title>
-  <meta name="theme-color" content="#0B0D17">
+  <meta name="theme-color" content="#001D39">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -17,20 +17,65 @@
 </head>
 <body>
 
+  <!-- Ikonkalar to'plami: <svg class="i"><use href="#i-nomi"/></svg> -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-sunrise" viewBox="0 0 24 24"><path d="M12 2v6M9 5l3-3 3 3M4.2 10.2l1.4 1.4M19.8 10.2l-1.4 1.4M2 18h2M20 18h2M7 18a5 5 0 0 1 10 0M3 22h18"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-calgrid" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11 3l1.8 4.7 4.7 1.8-4.7 1.8L11 16l-1.8-4.7L4.5 9.5l4.7-1.8z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></symbol>
+    <symbol id="i-type" viewBox="0 0 24 24"><path d="M4 7V5h16v2M12 5v14M9 19h6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4L17 12H5"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><path d="M7.5 7.5h.01"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5M8 9h8M8 13h4"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.7 5.7l12.6 12.6"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol>
+  </svg>
+
   <!-- Kiriş -->
   <section id="screen-login" class="screen login hidden">
     <div class="login-box">
       <div class="logo">S</div>
       <h1><em>Solih</em></h1>
-      <p class="muted">Kiriş uçun parolingizni yozing</p>
+      <p class="muted">Şaxsiy yordamçingizga kiriş</p>
       <form id="loginForm">
-        <input id="password" type="password" autocomplete="current-password" placeholder="Parol" required>
-        <button type="submit" id="loginBtn" class="btn-accent">Kiriş</button>
+        <label class="field">
+          <span class="lb"><svg class="i"><use href="#i-lock"/></svg>Parol</span>
+          <input id="password" type="password" autocomplete="current-password" placeholder="Parolingizni yozing" required>
+        </label>
+        <button type="submit" id="loginBtn" class="btn-accent">
+          <span>Kiriş</span><svg class="i"><use href="#i-arrow"/></svg>
+        </button>
       </form>
       <p id="loginErr" class="err hidden"></p>
     </div>
     <div id="installHint" class="install hidden">
-      <b>Ilova qilib örnatiş</b>
+      <b><svg class="i"><use href="#i-download"/></svg>Ilova qilib örnatiş</b>
       <span>Safari'da <b>•••</b> → <b>Поделиться</b> → <b>На экран «Домой»</b></span>
     </div>
   </section>
@@ -38,38 +83,44 @@
   <!-- Bosh ekran -->
   <section id="screen-home" class="screen hidden">
     <header class="bar">
-      <span class="brand">Solih</span>
-      <button id="logoutBtn" class="icon-btn hidden" aria-label="Çiqiş">
-        <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg>
+      <span class="brand"><i class="brand-dot">S</i>Solih</span>
+      <button id="logoutBtn" class="icon-btn hidden" aria-label="Çiqiş" title="Çiqiş">
+        <svg class="i"><use href="#i-logout"/></svg>
       </button>
     </header>
 
     <div class="hello">
-      <p id="greet" class="muted"></p>
+      <p id="greet" class="greet"></p>
       <h1 id="today"></h1>
     </div>
 
     <button id="summary" class="summary">
       <div class="summary-top">
-        <span>Bugungi vazifalar</span>
+        <span class="summary-title"><svg class="i"><use href="#i-check-circle"/></svg>Bugungi vazifalar</span>
         <span id="sumCount" class="count">—</span>
       </div>
       <div class="progress"><i id="sumBar"></i></div>
-      <p id="sumNext" class="next">Yuklanmoqda…</p>
+      <p class="next"><span id="sumNext">Yuklanmoqda…</span><svg class="i chev"><use href="#i-next"/></svg></p>
     </button>
 
-    <h2 class="section">Agentlar</h2>
+    <div class="quick">
+      <button id="qAdd" class="quick-btn" type="button"><svg class="i"><use href="#i-plus"/></svg><span>Yangi vazifa</span></button>
+      <button id="qMic" class="quick-btn" type="button"><svg class="i"><use href="#i-mic"/></svg><span>Ovoz bilan</span></button>
+      <button id="qCal" class="quick-btn" type="button"><svg class="i"><use href="#i-calgrid"/></svg><span>Kalendar</span></button>
+    </div>
+
+    <h2 class="section"><svg class="i"><use href="#i-grid"/></svg>Agentlar</h2>
     <div id="modules" class="modules"></div>
 
     <div id="pushBox" class="install push-box hidden">
-      <b>🔔 Bildirişlar</b>
+      <b><svg class="i"><use href="#i-bell"/></svg>Bildirişlar</b>
       <span id="pushState">Eslatmalar telefon ekraniga ham kelsin.</span>
-      <button id="pushBtn" class="btn-accent hidden">Bildirişlarni yoqiş</button>
-      <button id="pushTestBtn" class="btn-ghost hidden">Sinov bildirişi</button>
+      <button id="pushBtn" class="btn-accent hidden"><svg class="i"><use href="#i-bell"/></svg><span>Bildirişlarni yoqiş</span></button>
+      <button id="pushTestBtn" class="btn-ghost hidden"><svg class="i"><use href="#i-send"/></svg><span>Sinov bildirişi</span></button>
     </div>
 
     <div id="installHint2" class="install hidden">
-      <b>Ilova qilib örnatiş</b>
+      <b><svg class="i"><use href="#i-download"/></svg>Ilova qilib örnatiş</b>
       <span>Safari'da <b>•••</b> → <b>Поделиться</b> → <b>На экран «Домой»</b></span>
     </div>
   </section>
@@ -77,19 +128,19 @@
   <!-- Rejalaştiruvçi -->
   <section id="screen-planner" class="screen hidden">
     <header class="bar">
-      <button id="backBtn" class="icon-btn" aria-label="Orqaga">
-        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      <button id="backBtn" class="icon-btn" aria-label="Orqaga" title="Orqaga">
+        <svg class="i"><use href="#i-back"/></svg>
       </button>
       <span class="title">Rejalaştiruvçi</span>
-      <button id="refreshBtn" class="icon-btn" aria-label="Yangilaş">
-        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
+      <button id="refreshBtn" class="icon-btn" aria-label="Yangilaş" title="Yangilaş">
+        <svg class="i"><use href="#i-refresh"/></svg>
       </button>
     </header>
     <div class="tabs" role="tablist">
-      <button class="tab active" data-view="day">Bugun</button>
-      <button class="tab" data-view="tomorrow">Ertaga</button>
-      <button class="tab" data-view="week">Hafta</button>
-      <button class="tab" data-view="calendar">Kalendar</button>
+      <button class="tab active" data-view="day" role="tab"><svg class="i"><use href="#i-sun"/></svg><span>Bugun</span></button>
+      <button class="tab" data-view="tomorrow" role="tab"><svg class="i"><use href="#i-sunrise"/></svg><span>Ertaga</span></button>
+      <button class="tab" data-view="week" role="tab"><svg class="i"><use href="#i-list"/></svg><span>Hafta</span></button>
+      <button class="tab" data-view="calendar" role="tab"><svg class="i"><use href="#i-calgrid"/></svg><span>Kalendar</span></button>
     </div>
     <main id="list" class="list"></main>
 
@@ -99,16 +150,20 @@
         <div class="mini-head">
           <b id="miniTitle"></b>
           <span>
-            <button id="miniPrev" type="button" aria-label="Oldingi oy">‹</button>
-            <button id="miniNext" type="button" aria-label="Keyingi oy">›</button>
+            <button id="miniPrev" type="button" class="mini-nav" aria-label="Oldingi oy"><svg class="i"><use href="#i-back"/></svg></button>
+            <button id="miniNext" type="button" class="mini-nav" aria-label="Keyingi oy"><svg class="i"><use href="#i-next"/></svg></button>
           </span>
         </div>
         <div id="mini" class="mini"></div>
         <div class="legend">
           <span><i class="lg-block"></i>Kun tartibi</span>
+          <span><i class="lg-hard"></i>Zal, dars (qattiq)</span>
           <span><i class="lg-task"></i>Solih vazifalari</span>
         </div>
-        <p class="cal-hint">Böş joyni bosing — şu vaqtga yangi vazifa.<br>← → — oldinga/orqaga, T — bugun.</p>
+        <div class="cal-hint">
+          <p><svg class="i"><use href="#i-info"/></svg>Böş joyni bosing — şu vaqtga yangi vazifa.</p>
+          <p><svg class="i"><use href="#i-keyboard"/></svg><kbd>←</kbd> <kbd>→</kbd> oldinga/orqaga, <kbd>T</kbd> bugun</p>
+        </div>
       </aside>
       <div class="cal-main">
         <div class="cal-toolbar">
@@ -118,12 +173,12 @@
             <button type="button" data-n="3">3 kun</button>
             <button type="button" data-n="7">Hafta</button>
           </div>
-          <button id="calToday" type="button" class="pill">Bugun</button>
-          <button id="calPrev" type="button" class="icon-btn sm" aria-label="Orqaga">
-            <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+          <button id="calToday" type="button" class="pill" title="Bugun (T)" aria-label="Bugun"><svg class="i"><use href="#i-target"/></svg><span>Bugun</span></button>
+          <button id="calPrev" type="button" class="icon-btn sm" aria-label="Orqaga" title="Orqaga">
+            <svg class="i"><use href="#i-back"/></svg>
           </button>
-          <button id="calNext" type="button" class="icon-btn sm" aria-label="Oldinga">
-            <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+          <button id="calNext" type="button" class="icon-btn sm" aria-label="Oldinga" title="Oldinga">
+            <svg class="i"><use href="#i-next"/></svg>
           </button>
         </div>
         <div id="calScroll" class="cal-scroll">
@@ -132,49 +187,52 @@
         </div>
       </div>
     </section>
-    <button id="micFab" class="fab fab-mic" aria-label="Ovoz bilan qöşiş">
-      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+
+    <button id="micFab" class="fab fab-mic" aria-label="Ovoz bilan qöşiş" title="Ovoz bilan qöşiş">
+      <svg class="i"><use href="#i-mic"/></svg>
     </button>
-    <button id="addBtn" class="fab" aria-label="Vazifa qöşiş">
-      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    <button id="addBtn" class="fab" aria-label="Vazifa qöşiş" title="Vazifa qöşiş">
+      <svg class="i"><use href="#i-plus"/></svg><span class="fab-label">Yangi vazifa</span>
     </button>
   </section>
 
   <!-- Vazifa qöşiş oynasi -->
   <div id="sheet" class="sheet hidden">
     <div class="sheet-card">
+      <i class="grab"></i>
       <div class="sheet-head">
-        <b>Yangi vazifa</b>
-        <button id="closeSheet" class="icon-btn" aria-label="Yopiş">
-          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        <b><svg class="i"><use href="#i-sparkles"/></svg>Yangi vazifa</b>
+        <button id="closeSheet" class="icon-btn" aria-label="Yopiş" title="Yopiş">
+          <svg class="i"><use href="#i-x"/></svg>
         </button>
       </div>
 
       <div id="stepText">
+        <p class="hint">Oddiy gap bilan yozing — Solih özi tuşunib, vaqtini topadi.</p>
         <textarea id="taskText" rows="2" placeholder="Masalan: ertaga 15:00 dökonga boriş, 1 soat"></textarea>
         <button id="micBtn" class="btn-mic" type="button">
-          <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          <svg class="i"><use href="#i-mic"/></svg>
           <span id="micLabel">Gapirib aytiş</span>
         </button>
-        <button id="parseBtn" class="btn-accent">Davom etiş</button>
-        <button id="manualBtn" class="btn-ghost">Qölda töldiriş</button>
+        <button id="parseBtn" class="btn-accent"><svg class="i"><use href="#i-sparkles"/></svg><span>Davom etiş</span></button>
+        <button id="manualBtn" class="btn-ghost"><svg class="i"><use href="#i-pencil"/></svg><span>Qölda töldiriş</span></button>
       </div>
 
       <div id="routineBox" class="routine hidden">
         <p id="routineText"></p>
-        <button id="rOnce" class="btn-accent" type="button">Ha, faqat şu kun</button>
-        <button id="rWeek" class="btn-ghost" type="button">Har hafta şunday</button>
-        <button id="rTask" class="btn-ghost" type="button">Yöq, alohida vazifa</button>
+        <button id="rOnce" class="btn-accent" type="button"></button>
+        <button id="rWeek" class="btn-ghost" type="button"></button>
+        <button id="rTask" class="btn-ghost" type="button"></button>
       </div>
 
       <form id="stepForm" class="hidden">
-        <label>Nomi<input id="fTitle" required maxlength="100"></label>
+        <label><span class="lb"><svg class="i"><use href="#i-type"/></svg>Nomi</span><input id="fTitle" required maxlength="100" placeholder="Nima qilasiz?"></label>
         <div class="row">
-          <label>Sana<input id="fDate" type="date" required></label>
-          <label>Vaqt<input id="fStart" type="time" required></label>
+          <label><span class="lb"><svg class="i"><use href="#i-calendar"/></svg>Sana</span><input id="fDate" type="date" required></label>
+          <label><span class="lb"><svg class="i"><use href="#i-clock"/></svg>Vaqt</span><input id="fStart" type="time" required></label>
         </div>
         <div class="row">
-          <label>Davomiylik
+          <label><span class="lb"><svg class="i"><use href="#i-timer"/></svg>Davomiylik</span>
             <select id="fDuration">
               <option value="15">15 daq</option><option value="30">30 daq</option>
               <option value="45">45 daq</option><option value="60">1 soat</option>
@@ -182,27 +240,27 @@
               <option value="180">3 soat</option>
             </select>
           </label>
-          <label>Muhimlik
+          <label><span class="lb"><svg class="i"><use href="#i-flag"/></svg>Muhimlik</span>
             <select id="fPriority"><option>Yuqori</option><option selected>Örta</option><option>Past</option></select>
           </label>
         </div>
         <div class="row">
-          <label>Kategoriya
+          <label><span class="lb"><svg class="i"><use href="#i-tag"/></svg>Kategoriya</span>
             <select id="fCategory">
               <option>Öqiş</option><option>Iş</option><option>Dökon</option>
               <option>Sport</option><option>Şaxsiy</option><option selected>Boşqa</option>
             </select>
           </label>
-          <label>Takrorlaniş
+          <label><span class="lb"><svg class="i"><use href="#i-repeat"/></svg>Takrorlaniş</span>
             <select id="fRecur">
               <option selected>Yöq</option><option>Har kuni</option><option>Har hafta</option><option>Har oy</option>
             </select>
           </label>
         </div>
         <p id="fRemind" class="remind"></p>
-        <label>Izoh<input id="fNote" maxlength="200" placeholder="ixtiyoriy"></label>
+        <label><span class="lb"><svg class="i"><use href="#i-note"/></svg>Izoh</span><input id="fNote" maxlength="200" placeholder="ixtiyoriy"></label>
         <p id="formWarn" class="warn hidden"></p>
-        <button type="submit" id="saveBtn" class="btn-accent">Saqlaş</button>
+        <button type="submit" id="saveBtn" class="btn-accent"><svg class="i"><use href="#i-check"/></svg><span>Saqlaş</span></button>
       </form>
     </div>
   </div>
@@ -210,13 +268,14 @@
   <!-- Kalendardagi vazifa yoki blok tafsilotlari -->
   <div id="evSheet" class="sheet hidden">
     <div class="sheet-card">
+      <i class="grab"></i>
       <div class="sheet-head">
         <b id="evTitle"></b>
-        <button id="evClose" class="icon-btn" aria-label="Yopiş">
-          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        <button id="evClose" class="icon-btn" aria-label="Yopiş" title="Yopiş">
+          <svg class="i"><use href="#i-x"/></svg>
         </button>
       </div>
-      <p id="evMeta" class="ev-meta"></p>
+      <div id="evMeta" class="ev-meta"></div>
       <div id="evActions" class="ev-actions"></div>
     </div>
   </div>
