@@ -14,6 +14,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="suhbat.css">
 </head>
 <body>
 
@@ -33,6 +34,7 @@
     <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
     <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></symbol>
     <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11 3l1.8 4.7 4.7 1.8-4.7 1.8L11 16l-1.8-4.7L4.5 9.5l4.7-1.8z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol>
     <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></symbol>
     <symbol id="i-type" viewBox="0 0 24 24"><path d="M4 7V5h16v2M12 5v14M9 19h6"/></symbol>
@@ -84,6 +86,9 @@
   <section id="screen-home" class="screen hidden">
     <header class="bar">
       <span class="brand"><i class="brand-dot">S</i>Solih</span>
+      <button id="talkBtn" class="icon-btn talk-btn" aria-label="Solih bilan gaplaşiş" title="Solih bilan gaplaşiş">
+        <svg class="i"><use href="#i-wave"/></svg>
+      </button>
       <button id="logoutBtn" class="icon-btn hidden" aria-label="Çiqiş" title="Çiqiş">
         <svg class="i"><use href="#i-logout"/></svg>
       </button>
@@ -132,6 +137,9 @@
         <svg class="i"><use href="#i-back"/></svg>
       </button>
       <span class="title">Rejalaştiruvçi</span>
+      <button id="talkBtn2" class="icon-btn talk-btn" aria-label="Solih bilan gaplaşiş" title="Solih bilan gaplaşiş">
+        <svg class="i"><use href="#i-wave"/></svg>
+      </button>
       <button id="refreshBtn" class="icon-btn" aria-label="Yangilaş" title="Yangilaş">
         <svg class="i"><use href="#i-refresh"/></svg>
       </button>
@@ -280,7 +288,30 @@
     </div>
   </div>
 
+  <!-- Solih bilan jonli suhbat (suhbat.js) -->
+  <div id="talk" class="talk hidden" data-state="off" role="dialog" aria-label="Solih bilan suhbat">
+    <header class="bar talk-bar">
+      <span class="brand"><i class="brand-dot">S</i>Solih</span>
+      <span id="talkState" class="talk-state"></span>
+      <button id="talkClose" class="icon-btn" aria-label="Suhbatni tugatiş" title="Tugatiş">
+        <svg class="i"><use href="#i-x"/></svg>
+      </button>
+    </header>
+    <div class="talk-orb-wrap">
+      <button id="talkOrb" class="talk-orb" type="button" aria-label="Mikrofon: yoqiş yoki öçiriş">
+        <svg class="i"><use href="#i-mic"/></svg>
+      </button>
+      <p id="talkHint" class="talk-hint"></p>
+    </div>
+    <div id="talkLog" class="talk-log" aria-live="polite"></div>
+    <form id="talkForm" class="talk-input">
+      <input id="talkText" placeholder="Yoki yozing…" autocomplete="off" enterkeyhint="send">
+      <button class="icon-btn" type="submit" aria-label="Yuboriş"><svg class="i"><use href="#i-send"/></svg></button>
+    </form>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
   <script src="app.js"></script>
+  <script src="suhbat.js"></script>
 </body>
 </html>

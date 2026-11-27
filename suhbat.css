@@ -1,0 +1,80 @@
+/* Solih — jonli suhbat (suhbat.js). Ranglar faqat style.css :root palitrasidan. */
+
+/* Ikonka (bosh ekran va rejalaştiruvçi sarlavhasida) */
+.talk-btn {
+  color: var(--c1); border: 0;
+  background: linear-gradient(140deg, var(--c7), var(--c6) 55%, var(--c4));
+  animation: talkPulse 2.6s ease-out infinite;
+}
+.talk-btn .i { stroke-width: 2.4; }
+@keyframes talkPulse {
+  0% { box-shadow: 0 0 0 0 rgba(123, 189, 232, .55); }
+  70% { box-shadow: 0 0 0 11px rgba(123, 189, 232, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(123, 189, 232, 0); }
+}
+
+/* Töliq ekranli suhbat oynasi */
+.talk {
+  position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column;
+  background: radial-gradient(120% 75% at 50% 0%, var(--c2), var(--c1) 72%);
+  padding: calc(12px + env(safe-area-inset-top)) 18px calc(14px + var(--safe-bottom));
+  animation: fade .2s;
+}
+body.talk-open { overflow: hidden; }
+.talk-bar .brand { flex: 1; }
+.talk-state { color: var(--c5); font-size: 13px; font-weight: 600; margin-right: 4px; }
+
+.talk-orb-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 22px 0 10px; }
+.talk-orb {
+  --lvl: 0;
+  position: relative; width: 148px; height: 148px; border-radius: 50%; border: 0; padding: 0;
+  display: grid; place-items: center; color: var(--c1);
+  background: radial-gradient(circle at 34% 28%, var(--c7), var(--c6) 36%, var(--c4) 66%, var(--c2));
+  box-shadow: 0 0 calc(26px + var(--lvl) * 70px) rgba(123, 189, 232, .5), inset 0 -10px 30px rgba(0, 29, 57, .35);
+  transform: scale(calc(1 + var(--lvl) * .14));
+  transition: transform .09s linear, box-shadow .09s linear, filter .3s;
+}
+.talk-orb::after {
+  content: ''; position: absolute; inset: -12px; border-radius: 50%;
+  border: 2px solid rgba(123, 189, 232, .28);
+}
+.talk-orb .i { width: 42px; height: 42px; stroke-width: 2.2; opacity: .85; }
+.talk-orb:active { transform: scale(.94); }
+.talk-hint { margin: 0; min-height: 20px; color: var(--c5); font-size: 14px; text-align: center; }
+
+.talk[data-state="speaking"] .talk-orb { animation: orbTalk 1s ease-in-out infinite; }
+@keyframes orbTalk { 50% { transform: scale(1.09); box-shadow: 0 0 80px rgba(123, 189, 232, .6); } }
+.talk[data-state="connecting"] .talk-orb, .talk[data-state="thinking"] .talk-orb { animation: orbBreath 1.6s ease-in-out infinite; }
+@keyframes orbBreath { 50% { transform: scale(.94); filter: brightness(.85); } }
+.talk[data-state="connecting"] .talk-orb::after, .talk[data-state="thinking"] .talk-orb::after {
+  border-color: rgba(123, 189, 232, .15); border-top-color: var(--c7); animation: orbSpin 1s linear infinite;
+}
+@keyframes orbSpin { to { transform: rotate(360deg); } }
+.talk[data-state="muted"] .talk-orb, .talk[data-state="off"] .talk-orb { filter: saturate(.4) brightness(.65); box-shadow: none; transform: none; }
+
+.talk-log {
+  flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 2px;
+  -webkit-mask-image: linear-gradient(transparent, #000 22px); mask-image: linear-gradient(transparent, #000 22px);
+}
+.tmsg { max-width: 86%; padding: 10px 13px; border-radius: 16px; font-size: 15px; line-height: 1.42; white-space: pre-wrap; }
+.tmsg.me { align-self: flex-end; background: var(--c6); color: var(--c1); border-bottom-right-radius: 6px; }
+.tmsg.bot { align-self: flex-start; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+.tmsg.sys { align-self: center; max-width: 92%; background: none; color: var(--c5); font-size: 13px; text-align: center; padding: 4px 8px; }
+.tchip {
+  align-self: center; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px;
+  font-size: 12.5px; color: var(--c5); border: 1px dashed var(--line-2);
+}
+.tchip .i { width: 14px; height: 14px; }
+
+.talk-input { display: flex; gap: 8px; padding-top: 8px; }
+.talk-input input {
+  flex: 1; min-width: 0; padding: 12px 14px; border-radius: 14px; font-size: 16px;
+  background: var(--surface); border: 1px solid var(--line-2); color: var(--text);
+}
+.talk-input input::placeholder { color: var(--muted); }
+.talk-input .icon-btn { width: 48px; height: 48px; flex: none; }
+
+@media (min-width: 700px) { .talk { padding-left: max(18px, calc(50% - 300px)); padding-right: max(18px, calc(50% - 300px)); } }
+@media (prefers-reduced-motion: reduce) {
+  .talk-btn, .talk-orb, .talk-orb::after { animation: none !important; }
+}
